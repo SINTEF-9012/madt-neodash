@@ -26,6 +26,7 @@
     "build": "yarn webpack --mode production && cp -r public/* dist/",
     "build-minimal": "yarn webpack --mode production --env production && cp -r public/* dist/",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
+	"minio-client": "tsc scripts/minioClient.ts && node scripts/minioClient.js",
     "mqtt-kafka-bridge": "tsc scripts/mqttKafkaBridge.ts && node scripts/mqttKafkaBridge.js",
     "lint": "eslint --ext .ts --ext .tsx .",
     "lint-staged": "lint-staged --config .lintstagedrc.json",
