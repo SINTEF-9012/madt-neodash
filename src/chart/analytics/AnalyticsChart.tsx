@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
+
 import { ChartProps } from '../Chart';
 import { generateCypher } from '../../openai/TextToCypher';
 import axios from 'axios'; // HTTP client
+import { ChordChart } from './component/ChordChart';
 
 /**
  * Renders Neo4j records as their JSON representation.
@@ -37,6 +39,7 @@ const AnalyticsChart = (props: ChartProps) => {
       />
       <button onClick={handleSubmit}>Send</button>
       {savedText && <div><p>Saved Text: {savedText}</p></div>}
+      
     </div>
   );
 };

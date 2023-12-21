@@ -16,6 +16,7 @@ import AttachmentChart from '../chart/attachment/AttachmentChart';
 import DataSourceChart from '../chart/datasource/DataSource';
 import StaticDataChart from '../chart/staticdata/StaticDataChart';
 import AnalyticsChart from '../chart/analytics/AnalyticsChart';
+import CountChart from '../chart/count/CountChart';
 
 // TODO: make the reportConfig a interface with not self-documented code
 // Use Neo4j 4.0 subqueries to limit the number of rows returned by overriding the query.
@@ -1287,6 +1288,13 @@ export const REPORT_TYPES = {
     label: "Analytics",
     helperText: "I show the content following the endpoint of a static data file",
     component: AnalyticsChart,
+    maxRecords: 1,
+    settings: {}
+  },
+  count: {
+    label: "Count",
+    helperText: "I visualize some simple countings",
+    component: CountChart,
     maxRecords: 1,
     settings: {}
   }
