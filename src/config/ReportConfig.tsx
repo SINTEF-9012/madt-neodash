@@ -17,6 +17,7 @@ import DataSourceChart from '../chart/datasource/DataSource';
 import StaticDataChart from '../chart/staticdata/StaticDataChart';
 import AnalyticsChart from '../chart/analytics/AnalyticsChart';
 import StatisticsChart from '../chart/statistics/StatisticsChart';
+import CountChart from '../chart/count/CountChart';
 
 // TODO: make the reportConfig a interface with not self-documented code
 // Use Neo4j 4.0 subqueries to limit the number of rows returned by overriding the query.
@@ -1295,6 +1296,13 @@ export const REPORT_TYPES = {
     label: "Statistics",
     helperText: "I show the statistic properties of network traffic files",
     component: StatisticsChart,
+    maxRecords: 1,
+    settings: {}
+  },
+  count: {
+    label: "Count",
+    helperText: "I visualize some simple countings",
+    component: CountChart,
     maxRecords: 1,
     settings: {}
   }
