@@ -51,7 +51,7 @@ const StatisticsChart = (props: ChartProps) => {
 
   const fetchStatistics = () => {
 
-    const httpString = 'http://172.18.0.8:5003/get_statistics?endpoint=' + endpoint;
+    const httpString = 'http://localhost:5003/get_statistics?endpoint=' + endpoint;
 
     axios.get(httpString)
       .then((response) => {

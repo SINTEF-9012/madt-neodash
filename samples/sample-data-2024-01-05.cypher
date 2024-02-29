@@ -35,6 +35,6 @@ CREATE (a)-[r:AttachTo]->(b);
 CREATE (n:ANALYTICS {name:"pcap-analytics", task:"", url:""});
 MATCH (a:ANALYTICS), (b:STATICDATA) WHERE a.name = "pcap-analytics" AND b.name = "pcap-data"
 CREATE (a)-[r:WorksOn]->(b);
-CREATE (n:STATISTICS {name:"pcap-statistics-1", endpoint="pcap1_anom.pcap"});
+CREATE (n:STATISTICS {name:"pcap-statistics-1", endpoint:"pcap1_anom.pcap"});
 MATCH (a:STATISTICS), (b:STATICDATA) WHERE a.name = "pcap-statistics-1" AND b.name = "pcap-data"
 CREATE (a)-[r:WorksOn]->(b);
