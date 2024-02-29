@@ -50,12 +50,12 @@ Run in another terminal:
 yarn run dev
 ```
 
-Activate the environment, navigate to the connection folder and run both `minio_api.py` and `neo4j_api.py` files by using the following commands: 
-Activate the environment, navigate to the connection folder and run minio_api.py, neo4j_api.py and analytics_api.py files, using the following commands:
+Activate the environment, navigate to the connection folder and run `minio_api.py`, `neo4j_api.py` and `analytics_api.py` files, using the following commands:
 
 ```
 python minio_api.py
 python neo4j_api.py
+python analytics_api.py
 ```
 
 Navigate to the `statistics` directory, and run the following command (after having started the rest of the services as explained above):
@@ -64,39 +64,28 @@ Navigate to the `statistics` directory, and run the following command (after hav
 docker run -p 5003:5003 --network=sindit_network -it statistics
 ```
 
-### Populating Database and Dashboard
-
+### Accessing Database and Dashboard
 
 Open the minio database in browser: [http://localhost:9099](http://localhost:9099).
 Log in with user name and password (detailed in docker compose file).
 
-Create a user and set the policy to readwrite. The access and secret keys need to be updated in the `connection/minio_config.ini` file, and in `statistics/minio_config.ini`.
+Create a user and set the policy to read-write. The access and secret keys need to be updated in the `connection/minio_config.ini` file, and in `statistics/minio_config.ini`.
 Create a bucket and update the bucket name in `connection/minio_api.py` file. Add the PCAP file to the bucket. 
 
 Open the neo4j database in browser: [http://localhost:7474](http://localhost:7474).
 Log in with user name and password (detailed in docker compose file).
 
-Create a user and set the policy to readwrite. The access and secret keys need to be updated in the connection/minio_config.ini file.
-Create a bucket and update the bucket name in connection/minio_api.py file. Add the file to the bucket. 
-
 Open the dashboard in browser: [http://localhost:3000](http://localhost:3000), choose "New Dashboard". 
-Log in with user name: neo4j, password: sindit-neo4j.
+Log in with user name and password (detailed in docker compose file).
 
-**Create database**: If the database is empty, you can load one by opening Neo4j Browser at [http://localhost:7474](http:localhost:7474). Copy the content in `samples/sample-data-updated.cypher` and past it into the query box of the Neo4j browser, then execute the query. This query contains one example static data node and one analytics node. The name/type of the PCAP file needs to correspond to the endpoint/type properties of the static node and vice-versa. 
+**Create database**: If the database is empty, you can load one by opening Neo4j Browser at [http://localhost:7474](http:localhost:7474). Copy the content from `samples/<latest-date-sample>.cypher` and past it into the query box of the Neo4j browser, then execute the query. The name/type of the PCAP file needs to correspond to the endpoint/type properties of the static node. 
 
-**Load dashboard**: To load a dashboard, press load dashboard button in left side panel. Choose "Select from file", and choose a sample database (e.g. dashboard-2023-12-05.json) in the "samples" folder in this repo. 
-
-If the database is empty, you can load one by opening Neo4j Browser at http://localhost:7474 (log in using details in docker compose file). Copy the content in samples/sample-data-updated.cypher and paste it into the query box of the Neo4j browser, then execute the query. The name/type of the object file added in Minio needs to correspond to the endpoint/type properties of the static node. 
-
+**Load dashboard**: To load a dashboard at [http://localhost:3000](http:localhost:3000), press load dashboard button in left side panel. Choose "Select from file", and choose a sample dashboard (e.g. `samples/dashboard-<latest-date>.json`).
 
 ## User Guide for NeoDash
 
 NeoDash comes with built-in examples of dashboards and reports. For more details on the types of reports and how to customize them, see the [User Guide](
 https://neo4j.com/labs/neodash/2.2/user-guide/).
-
-## Publish Dashboards
-
-After building a dashboard, you can chose to deploy a read-only, standalone instance for users. See [Publishing](https://neo4j.com/labs/neodash/2.2/user-guide/publishing/) for more on publishing dashboards.
 
 
 ## Questions / Suggestions
