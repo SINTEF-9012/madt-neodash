@@ -62,7 +62,7 @@ def fetch_endpoint():
     node_name = data['node_name']
     print("Received request to fetch endpoint from related static node and update ", node_name)
     with driver.session() as session:
-        result = session.run("MATCH (n:ANALYTICS)-[a:WorksOn]->(m:STATICDATA) WHERE n.name = $node_name "
+        result = session.run("MATCH (n)-[a:WorksOn]->(m:STATICDATA) WHERE n.name = $node_name "
                              "SET n.endpoint = m.endpoint RETURN m",
                              node_name=node_name)
         return jsonify([record["m"].get("endpoint") for record in result])
@@ -73,10 +73,21 @@ def fetch_type():
     node_name = data['node_name']
     print("Received request to fetch type from related static node and update ", node_name)
     with driver.session() as session:
-        result = session.run("MATCH (n:ANALYTICS)-[a:WorksOn]->(m:STATICDATA) WHERE n.name = $node_name "
+        result = session.run("MATCH (n)-[a:WorksOn]->(m:STATICDATA) WHERE n.name = $node_name "
                              "SET n.type = m.type RETURN m",
                              node_name=node_name)
         return jsonify([record["m"].get("type") for record in result])
+    
+@app.route('/fetch_result', methods=['POST'])
+def fetch_result():
+    data = request.json
+    node_name = data['node_name']
+    print("Received request to fetch execution result from related static node and update ", node_name)
+    with driver.session() as session:
+        result = session.run("MATCH (c:COUNT)-[:WorksOn]->(s:STATICDATA)<-[:WorksOn]-(a:ANALYTICS) WHERE c.name = $node_name "
+                             "SET c.result = a.result RETURN a",
+                             node_name=node_name)
+        return jsonify([record["a"].get("result") for record in result])
     
 @app.route('/update_code', methods=['POST'])
 def update_code():

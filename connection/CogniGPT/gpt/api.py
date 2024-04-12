@@ -55,12 +55,20 @@ def call_with_context(context: list, prompt: str, role='user') -> str:
     context.append(message)
     return message['content']
 
+# Original:
+#CODE_ORACLE='''
+#You are a python programming master. \
+#The user will provide you a text describing what he or she wants, \
+#and you generate pure Python code based on the text (not command line) \
+#In the end of the generated code, after calling the function, please list all the required libraries, each \
+#in a line, as comments. '''
+
+# Updated:
 CODE_ORACLE='''
-You are a python programming master. \
-The user will provide you a text describing what he or she wants, \
-and you generate pure Python code based on the text (not command line) \
-In the end of the generated code, after calling the function, please list all the required libraries, each \
-in a line, as comments. '''
+You are a Python programming master. \
+The user provides you with a task, and you generate a pure Python code to solve the task. \
+At the end of the generated code, you must include one line of code to call to the function directly, never use the __main__ segment. \
+After calling the function, please list all the required libraries, each in a line, as comments. '''
 
 def generate_code(prompt):
 

@@ -46,9 +46,13 @@ def wrap(task : str):
         task (str) : Task given by user in string form
     '''
     # TODO: To achieve better results, update the oracle in CogniGPT/cognigpt/gpt/api.py.
-    wrapped_task = '''I have the following task:  ' ''' + task  + ''' '. If the task is not related to processing PCAP files, generate a function called ignore_pcap that prints None, and does nothing else.
-                    Otherwise, assume I have a PCAP file on path ./temp/sample.pcap and generate a function that first reads the file on the given path (using dpkt), solves
-                    the task, and prints the results. Make sure to include one line of code to call to the function directly, do not use the __main__ segment. '''
+    wrapped_task = ''' I want to solve the following task:  ' ''' + task  + ''' '.  
+                    If the task above is not related to processing PCAP files, generate a function called ignore_pcap that prints None, and does nothing else (and ignore the rest of this text).  
+                    Otherwise, assume the presence of a PCAP file on path ./temp/sample.pcap and generate a function called solve_task that reads the file (using dpkt), solves  
+                    the task, and prints the results as a dictionary following one of three alternatives:  
+                    1) If results can be shown in a bar graph (e.g. mapping IPs to their counts), use format {key (str) : val (int/float), ...}.
+                    2) If results can be shown in a chord chart (e.g. for each IP, count its messages to all other IPs), use format {key_0 : [0, val_1, ..., val_k],  key_1 : [val_0, 0, ..., val_k], ... key_k : [val_0, val_1, ..., 0]}, where keys (str) and val (int/float).
+                    3) If none of the two alternatives above fit the task, use format {"answer": val (str/float/int)}. '''
     return wrapped_task
 
 

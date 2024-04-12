@@ -15,6 +15,12 @@ Install dependencies:
 yarn install
 ```
 
+Make sure chart.js, react-chartjs-2 and cl-react-graph are installed, if not, use:
+
+```
+yarn add chart.js, react-chartjs-2, cl-react-graph
+```
+
 Build local Docker image for MQtt-Kafka bridge (the rest of the Docker images are pulled from web):
 
 ```
