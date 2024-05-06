@@ -1,0 +1,8 @@
+{
+    "objects": [
+        "pcap1_anom.pcap",
+        "pcap2_anom.pcap",
+        "pcap3_anom.pcap",
+        "test-prior-to-pcap.txt"
+    ]
+}

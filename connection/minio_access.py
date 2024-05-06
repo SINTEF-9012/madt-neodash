@@ -95,11 +95,7 @@ def list_objects(bucket_name, prefix = None, recursive = False):
         print(f"Bucket {bucket_name} does not exist.")
     else:
         objects = client.list_objects(bucket_name, prefix=prefix)
-        object_list = list(objects)
-        print(f"Bucket {bucket_name} with prefix {prefix} includes following {len(object_list)} objects:")
-        for obj in object_list:
-            print(obj.object_name)
-    # Tested
+    return objects
 
 #TODO: Other bucket operations: set/delete encryption
 ### Object Operations ###

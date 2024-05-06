@@ -125,6 +125,15 @@ def update_result():
                              "SET n.result = $result RETURN n",
                              node_name=node_name, result=result)
         return jsonify([record["n"].get("result") for record in session_result])
+    
+# - - - - -  - - - - -   - - - - -  Add more customized functions here: - - - - -   - - - - -   - - - - - 
+@app.route('/neo4j_get_data', methods=['GET'])
+def neo4j_get_data():
+    query = request.args.get('query')
+    with driver.session() as session:
+        result = session.run(query)
+        result_data = [record.data() for record in result]
+        return jsonify(result_data)
 
 if __name__ == '__main__':
     app.run(host="localhost", port=5001)

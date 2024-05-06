@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-from minio_access import url_object, download_object
+from minio_access import url_object, download_object, list_objects
 
 
 app = Flask(__name__)
@@ -31,6 +31,16 @@ def minio_download():
     download_object(bucket_name='pcap-ferro', object_name=file_name, file_path=download_path, ) # Obs: Hard-coded bucket name
     # Return status
     return jsonify({'status': 200})
+
+# - - - - -  - - - - -   - - - - -  Add more customized functions here: - - - - -   - - - - -   - - - - - 
+@app.route('/minio_list_objects', methods=['GET'])
+def minio_list_objects():
+    bucket_name = request.args.get('bucket_name')  
+    objects = list_objects(bucket_name=bucket_name)
+    object_list = list(objects)
+    object_list = [object.object_name for object in object_list]
+    print(object_list)
+    return jsonify({'objects': object_list})
 
 if __name__ == '__main__':
     app.run(host="localhost", port=5000)
