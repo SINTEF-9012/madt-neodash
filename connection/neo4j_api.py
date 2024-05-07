@@ -21,35 +21,50 @@ def add_cors_headers(response):
 def apply_cors(response):
     return add_cors_headers(response)
 
-@app.route('/update_url', methods=['POST'])
-def update_url():
-    data = request.json
-    node_endpoint = data['node_endpoint']
-    url = data['url']
-    print("Received request to update:", node_endpoint, "with URL:", url)
-    with driver.session() as session:
-        result = session.run("MATCH (n) WHERE n.endpoint = $node_endpoint "
-                             "SET n.url = $url RETURN n",
-                             node_endpoint=node_endpoint, url=url)
-        return jsonify([record["n"].get("url") for record in result])
-    
-@app.route('/update_task', methods=['POST'])
-def update_task():
+@app.route('/neo4j_update_url', methods=['POST'])
+def neo4j_update_url():
     data = request.json
     node_name = data['node_name']
-    task = data['task']
-    print("Received request to update:", node_name, "with task: ", task)
+    endpoint = data['endpoint']
+    url = data['url']
+    print("[neo4j_api.py] Received request to update:", node_name, " from bucket ", endpoint, " with URL: ", url)
     with driver.session() as session:
-        result = session.run("MATCH (n) WHERE n.name = $node_name "
+        result = session.run("MATCH (n) WHERE n.name = $node_name AND n.endpoint = $endpoint "
+                             "SET n.url = $url RETURN n",
+                             node_name=node_name, endpoint=endpoint, url=url)
+        return jsonify([record["n"].get("url") for record in result])
+    
+@app.route('/neo4j_update_task', methods=['POST'])
+def neo4j_update_task():
+    data = request.json
+    endpoint = data['endpoint']
+    node_name = data['node_name']
+    task = data['task']
+    print("[neo4j_api.py] Received request to update:", node_name, " from bucket ",endpoint, " with task: ", task)
+    with driver.session() as session:
+        result = session.run("MATCH (n) WHERE n.name = $node_name AND n.endpoint = $endpoint "
                              "SET n.task = $task RETURN n",
-                             node_name=node_name, task=task)
+                             node_name=node_name, task=task, endpoint=endpoint)
         return jsonify([record["n"].get("task") for record in result])
+    
+@app.route('/neo4j_update_result', methods=['POST'])
+def neo4j_update_result():
+    data = request.json
+    node_name = data['node_name']
+    result = data['result']
+    endpoint = data['endpoint']
+    print("[neo4j_api.py] Received request to update:", node_name, " from bucket:", endpoint, " with result: ", result)
+    with driver.session() as session:
+        session_result = session.run("MATCH (n) WHERE n.name = $node_name AND n.endpoint = $endpoint "
+                             "SET n.result = $result RETURN n",
+                             node_name=node_name, result=result, endpoint=endpoint)
+        return jsonify([record["n"].get("result") for record in session_result])
     
 @app.route('/fetch_url', methods=['POST'])
 def fetch_url():
     data = request.json
     node_name = data['node_name']
-    print("Received request to fetch URL from related static node and update ", node_name)
+    print("[neo4j_api.py] Received request to fetch URL from related static node and update ", node_name)
     with driver.session() as session:
         result = session.run("MATCH (n:ANALYTICS)-[a:WorksOn]->(m:STATICDATA) WHERE n.name = $node_name "
                              "SET n.url = m.url RETURN m",
@@ -60,72 +75,32 @@ def fetch_url():
 def fetch_endpoint():
     data = request.json
     node_name = data['node_name']
-    print("Received request to fetch endpoint from related static node and update ", node_name)
+    print("[neo4j_api.py] Received request to fetch endpoint from related static node and update ", node_name)
     with driver.session() as session:
         result = session.run("MATCH (n)-[a:WorksOn]->(m:STATICDATA) WHERE n.name = $node_name "
                              "SET n.endpoint = m.endpoint RETURN m",
                              node_name=node_name)
         return jsonify([record["m"].get("endpoint") for record in result])
     
-@app.route('/fetch_type', methods=['POST'])
-def fetch_type():
-    data = request.json
-    node_name = data['node_name']
-    print("Received request to fetch type from related static node and update ", node_name)
-    with driver.session() as session:
-        result = session.run("MATCH (n)-[a:WorksOn]->(m:STATICDATA) WHERE n.name = $node_name "
-                             "SET n.type = m.type RETURN m",
-                             node_name=node_name)
-        return jsonify([record["m"].get("type") for record in result])
     
-@app.route('/fetch_result', methods=['POST'])
-def fetch_result():
-    data = request.json
-    node_name = data['node_name']
-    print("Received request to fetch execution result from related static node and update ", node_name)
+@app.route('/neo4j_get_result', methods=['GET'])
+def neo4j_get_result():
+    endpoint = request.args.get('endpoint')
+    print("[neo4j_api.py] Received request to get result from Analytics node associated with endpoint: ", endpoint)
     with driver.session() as session:
-        result = session.run("MATCH (c:COUNT)-[:WorksOn]->(s:STATICDATA)<-[:WorksOn]-(a:ANALYTICS) WHERE c.name = $node_name "
-                             "SET c.result = a.result RETURN a",
-                             node_name=node_name)
-        return jsonify([record["a"].get("result") for record in result])
+        result = session.run("MATCH (n:ANALYTICS) WHERE n.endpoint = $endpoint "
+                             "RETURN n", endpoint=endpoint)
+        return jsonify([record["n"].get("result") for record in result])
     
-@app.route('/update_code', methods=['POST'])
-def update_code():
-    data = request.json
-    node_name = data['node_name']
-    code = data['code']
-    print("Received request to update:", node_name, "with code: ", code)
+@app.route('/neo4j_get_task', methods=['GET'])
+def neo4j_get_task():
+    endpoint = request.args.get('endpoint')
+    print("[neo4j_api.py] Received request to get task from Analytics node associated with endpoint: ", endpoint)
     with driver.session() as session:
-        result = session.run("MATCH (n) WHERE n.name = $node_name "
-                             "SET n.code = $code RETURN n",
-                             node_name=node_name, code=code)
-        return jsonify([record["n"].get("code") for record in result])
-    
-@app.route('/update_lib', methods=['POST'])
-def update_lib():
-    data = request.json
-    node_name = data['node_name']
-    lib = data['lib']
-    print("Received request to update:", node_name, "with lib: ")
-    print(lib)
-    with driver.session() as session:
-        result = session.run("MATCH (n) WHERE n.name = $node_name "
-                             "SET n.lib = $lib RETURN n",
-                             node_name=node_name, lib=lib)
-        return jsonify([record["n"].get("lib") for record in result])
-    
-@app.route('/update_result', methods=['POST'])
-def update_result():
-    data = request.json
-    node_name = data['node_name']
-    result = data['result']
-    print("Received request to update:", node_name, "with result: ", result)
-    with driver.session() as session:
-        session_result = session.run("MATCH (n) WHERE n.name = $node_name "
-                             "SET n.result = $result RETURN n",
-                             node_name=node_name, result=result)
-        return jsonify([record["n"].get("result") for record in session_result])
-    
+        result = session.run("MATCH (n:ANALYTICS) WHERE n.endpoint = $endpoint "
+                             "RETURN n", endpoint=endpoint)
+        return jsonify([record["n"].get("task") for record in result])
+     
 # - - - - -  - - - - -   - - - - -  Add more customized functions here: - - - - -   - - - - -   - - - - - 
 @app.route('/neo4j_get_data', methods=['GET'])
 def neo4j_get_data():

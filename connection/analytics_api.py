@@ -17,11 +17,11 @@ def add_cors_headers(response):
 def apply_cors(response):
     return add_cors_headers(response)
 
-@app.route('/generate_code', methods=['GET'])
-def generate():
+@app.route('/analytics_generate_code', methods=['GET'])
+def analytics_generate_code():
     task = request.args.get('task')
     wrapped_task = wrap(task)
-    print("Received request to generate code based on task:", wrapped_task)
+    print("[analytics_api.py] Received request to generate code based on task:", wrapped_task)
     code_and_lib = generate_code(wrapped_task)
     code = code_and_lib["code"]
     lib = code_and_lib["lib"]
@@ -29,11 +29,11 @@ def generate():
     response_content = {'code': code, 'lib': lib}
     return jsonify(response_content)
 
-@app.route('/run_code', methods=['GET'])
-def run():
+@app.route('/analytics_run_code', methods=['GET'])
+def analytics_run_code():
     code = request.args.get('code')
     lib = request.args.get('lib') 
-    print(f"Received request to run code. Installing following libraries: {lib}")
+    print(f"[analytics_api.py] Received request to run code.")
     response = run_code(code, lib)
     # Return the output as JSON:
     response_content = {'response': response}
@@ -45,7 +45,7 @@ def wrap(task : str):
     Args:
         task (str) : Task given by user in string form
     '''
-    # TODO: To achieve better results, update the oracle in CogniGPT/cognigpt/gpt/api.py.
+    # TODO: To achieve better results, update also the oracle in CogniGPT/cognigpt/gpt/api.py.
     wrapped_task = ''' I want to solve the following task:  ' ''' + task  + ''' '.  
                     If the task above is not related to processing PCAP files, generate a function called ignore_pcap that prints None, and does nothing else (and ignore the rest of this text).  
                     Otherwise, assume the presence of a PCAP file on path ./temp/sample.pcap and generate a function called solve_task that reads the file (using dpkt), solves  
@@ -58,7 +58,7 @@ def wrap(task : str):
 
 def run_code(code, lib):
     # TODO: Change oracle so that the libraries are listed in a "pip install <lib>" format or change extract_code. For now, we ignore lib, and manually install in env via poetry instead.
-    # TODO: Change to safer approach that does not have a risk for code injection.
+    # TODO: Change to safer approach that does not have a risk for code injection. - AGENT
     # Create a StringIO object to capture output
     output_buffer = io.StringIO()
     # Save the current stdout so that we can restore it later

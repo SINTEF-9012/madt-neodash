@@ -13,20 +13,19 @@ const StaticDataChart = (props: ChartProps) => {
   const { records, settings, getGlobalParameter } = props;
   const node = records && records[0] && records[0]._fields && records[0]._fields[0] ? records[0]._fields[0] : {};
   const [url, setUrl] = useState('');
-  const endpoint = node.properties['endpoint']
-  const type = node.properties['type']
-  const filename = endpoint + '.' + type; // Add extension to name
+  const endpoint = node.properties['endpoint']; // Obs! Used as bucket name
+  const node_name = node.properties['name'];
 
   const fetchUrl = () => {
     // Existing code to fetch the URL
-    const httpString = 'http://localhost:5000/minio_get_url?file_name=' + filename;
+    const httpString = 'http://localhost:5000/minio_get_last_url?endpoint=' + endpoint;
     axios.get(httpString)
       .then((response) => {
         const apiUrl = response.data.url;
         setUrl(apiUrl);  // This will trigger the useEffect listening to `url`
       })
       .catch((error) => {
-        console.error('Error fetching URL:', error);
+        console.error('[StaticDataChart.tsx] Error fetching URL:', error);
       });
   };
 
@@ -40,14 +39,15 @@ const StaticDataChart = (props: ChartProps) => {
       try {
         // Update the URL in the Neo4J graph
         if (url) {
-          await axios.post('http://localhost:5001/update_url', {
-            node_endpoint: endpoint,  // Replace with actual node name
+          await axios.post('http://localhost:5001/neo4j_update_url', {
+            node_name : node_name,
+            endpoint: endpoint, 
             url: url
           });
-          console.log('Node updated with URL:', url);
+          console.log('[StaticDataChart.tsx] Static node updated with URL:', url);
         }
       } catch (error) {
-        console.error('Error in fetchAndUpdateUrl:', error);
+        console.error('[StaticDataChart.tsx] Error in fetchAndUpdateUrl:', error);
       }
     };
     // TODO: Change according to time expire date:

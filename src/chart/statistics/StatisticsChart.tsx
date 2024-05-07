@@ -42,25 +42,21 @@ const StatisticsChart = (props: ChartProps) => {
 
   const { records, settings, getGlobalParameter } = props;
   const node = records && records[0] && records[0]._fields && records[0]._fields[0] ? records[0]._fields[0] : {};
-
   const [statistics, setStatistics] = useState('');
-
+  const endpoint = node.properties['endpoint'] // Obs! Used as bucket name
   const name = node.properties['name']
-  const endpoint = node.properties['endpoint']
-  // const type = node.properties['type']
 
   const fetchStatistics = () => {
-
     const httpString = 'http://localhost:5003/get_statistics?endpoint=' + endpoint;
-
     axios.get(httpString)
       .then((response) => {
         const apiStatistics = response.data;
-		console.log(response.data);
+        console.log("HERE3");
+		    console.log(response.data);
         setStatistics(apiStatistics); 
       })
       .catch((error) => {
-        console.error('Error fetching statistics:', error);
+        console.error('[StatisticsChart.tsx] Error fetching statistics:', error);
       });
   };
 

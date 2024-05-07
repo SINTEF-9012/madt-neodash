@@ -10,8 +10,10 @@ const CountChart = (props: ChartProps) => {
   const { records, settings, getGlobalParameter } = props;
   // const type = settings && settings.format ? settings.format : 'json';
   const node = records && records[0] && records[0]._fields && records[0]._fields[0] ? records[0]._fields[0]: {};
-  const name = node.properties['name'] // Obs. We use name as identifier - TODO: use something else #UNDO
+  const name = node.properties['name'] 
+  const endpoint = node.properties['endpoint']; // Obs! Used as bucket name
   const [result, setResult] = useState('');
+  const [task, setTask] = useState('');
   const [chartData, setChartData] = useState(null);
   const [chartType, setChartType] = useState(''); // 'bar' or 'chord'
   const [isAnalysisRun, setIsAnalysisRun] = useState(false);
@@ -19,17 +21,26 @@ const CountChart = (props: ChartProps) => {
   const handleSubmit = async () => {
     // Fetch result of the static node linked to current node using identifier: 
     try {
-      const updateResultResponse = await axios.post('http://localhost:5001/fetch_result', {node_name: name});
-      // console.log(updateResultResponse.data[0].toString());
-      setResult(updateResultResponse.data[0].toString()); // Assuming response data is the result
-      console.log('[CountChart.tsx] Fetched following result from static node:', result);
-      if (updateResultResponse.status === 200){
+      // Fetch task:
+      const taskResponse = await axios.get(`http://localhost:5001/neo4j_get_task`, {
+          params: { endpoint: endpoint }
+      });
+      setTask(taskResponse.data[0].toString()); // Assuming response data is the task
+      console.log('[CountChart.tsx] Fetched following task:', task);
+      // Fetch result:
+      const resultResponse = await axios.get(`http://localhost:5001/neo4j_get_result`, {
+          params: { endpoint: endpoint }
+      });
+      // console.log(resultResponse.data[0].toString());
+      setResult(resultResponse.data[0].toString()); // Assuming response data is the result
+      console.log('[CountChart.tsx] Fetched following result:', result);
+      if (resultResponse.status === 200){
         setIsAnalysisRun(true);
-        const { transformedData, chartType } = transformResultToChartFormat(updateResultResponse.data[0].toString());
+        const { transformedData, chartType } = transformResultToChartFormat(resultResponse.data[0].toString());
         setChartData(transformedData);
         setChartType(chartType);
       } else {
-        // If result is not fetched succesfully, remind user to run analysis first. 
+        // TODO: If result is not fetched succesfully, remind user to run analysis first. 
         alert("Please run the analysis module.");
       }
     } catch (error) {
@@ -55,7 +66,7 @@ const CountChart = (props: ChartProps) => {
       // Build regex with format rules:
       const barRegex = /\{\s*([\'"])(?!answer\b)[^\'"]+\1\s*:\s*-?\d+(\.\d+)?\s*(,\s*([\'"])(?!answer\b)[^\'"]+\4\s*:\s*-?\d+(\.\d+)?\s*)*\}/;
       const chordRegex = /\{\s*(['"])(?!answer\b)[^'"]+\1\s*:\s*\[\s*(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)(?:,\s*-?\d+(?:\.\d+)?)*\s*\](?:,\s*\1(?!answer\b)[^'"]+\1\s*:\s*\[\s*(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)(?:,\s*-?\d+(?:\.\d+)?)*\s*\])*\s*\}/;
-      const simpleRegex = /\{\s*(['"])answer\s*\1\s*:\s*(\1[^'\"]*?\1|[\d.-]+)\s*\}/;
+      const simpleRegex = /\{\s*(['"])answer\s*\1\s*:\s*(\[\s*(\1[^'\"]*?\1\s*(,\s*\1[^'\"]*?\1\s*)*)?\]|[\d.-]+|\1[^'\"]*?\1)\s*\}/;
       // Test each regex against the dictionary content:
       if (barRegex.test(dictionaryContent)) {
           // This block will execute if the dictionary meets the bar format rule {key (str) : value (int,float), ...}
@@ -101,15 +112,29 @@ const CountChart = (props: ChartProps) => {
             </button>
         )}
         {chartData && (
-            <>
-                {chartType === 'chord' && <ChordChart rvalue={chartData} />}
-                {chartType === 'bar' && <SimpleBarChart chartData={chartData} />}
-                {chartType === 'simple' && (
-                    <pre style={{ textAlign: 'left', whiteSpace: 'pre-wrap', wordWrap: 'break-word', fontSize: '18px' }}>
-                        {"Diagram cannot be generated for given result: \n" + JSON.stringify(chartData, null, 2)}
-                    </pre>
+            <div style={{ textAlign: 'left', margin: 'auto', maxWidth: '80%', fontSize: '18px' }}>
+                <p><strong>Task:</strong> {task}</p>
+                {chartType === 'chord' && (
+                    <>
+                        <p><strong>Chord Chart:</strong></p>
+                        <ChordChart rvalue={chartData} />
+                    </>
                 )}
-            </>
+                {chartType === 'bar' && (
+                    <>
+                        <p><strong>Bar Chart:</strong></p>
+                        <SimpleBarChart chartData={chartData} />
+                    </>
+                )}
+                {chartType === 'simple' && (
+                    <>
+                        <p><strong>Answer:</strong></p>
+                        <pre style={{ whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}>
+                            {JSON.stringify(chartData, null, 2)}
+                        </pre>
+                    </>
+                )}
+            </div>
         )}
     </div>
 );

@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-from minio_access import url_object, download_object, list_objects
+from minio_access import download_last_object, get_url_last_object, list_objects
 
 
 app = Flask(__name__)
@@ -16,20 +16,19 @@ def add_cors_headers(response):
 def apply_cors(response):
     return add_cors_headers(response)
 
-@app.route('/minio_get_url', methods=['GET'])
-def get_minio_url():
-    file_name = request.args.get('file_name')  
-    print("Received request to obtain URL by accessing minio for node:", file_name)
-    url = url_object(bucket_name='pcap-ferro', object_name=file_name) # Obs: Hard-coded bucket name
+@app.route('/minio_get_last_url', methods=['GET'])
+def minio_get_last_url():
+    endpoint = request.args.get('endpoint')
+    print("[minio_api.py] Received request to fetch latest object from bucket: "+ endpoint)
+    url = get_url_last_object(bucket_name=endpoint) 
     return jsonify({'url': url})
 
-@app.route('/minio_download', methods=['GET'])
-def minio_download():
-    file_name = request.args.get('file_name')
+@app.route('/minio_local_download', methods=['GET'])
+def minio_local_download():
+    endpoint = request.args.get('endpoint')
     download_path = "./temp/sample.pcap" # Obs: Hard-coded path
-    print(f"Received request to download minio data for node {file_name}, and save on path: {download_path}")
-    download_object(bucket_name='pcap-ferro', object_name=file_name, file_path=download_path, ) # Obs: Hard-coded bucket name
-    # Return status
+    print(f"[minio_api.py] Received request to locally download MinIO data for latest file in bucket: ", endpoint, " and save on path: ",download_path)
+    download_last_object(bucket_name='endpoint', file_path=download_path) 
     return jsonify({'status': 200})
 
 # - - - - -  - - - - -   - - - - -  Add more customized functions here: - - - - -   - - - - -   - - - - - 

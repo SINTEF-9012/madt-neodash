@@ -9,7 +9,6 @@ Created:
 import argparse
 import os
 import sys
-
 import matplotlib.pyplot as plt
 from scapy.all import rdpcap, IP, TCP
 import pandas as pd
@@ -17,7 +16,6 @@ import pandas as pd
 def pcap_analysis(filename, create_plots=False):
     packets = rdpcap(filename)
     data = []
-
     for i, packet in enumerate(packets):
         if IP in packet:
             src_ip = packet[IP].src
@@ -33,14 +31,10 @@ def pcap_analysis(filename, create_plots=False):
             data.append([src_ip, dst_ip, packet_size, inter_arrival, timestamp])
 
     df = pd.DataFrame(data, columns=['src_ip', 'dst_ip', 'packet_size', 'inter_arrival', 'timestamp'])
-
     # Convert inter_arrival to a numeric type (float)
     df['inter_arrival'] = pd.to_numeric(df['inter_arrival'], errors='coerce')
-
-
     print(df)
     print(df.info())
-
     # Plotting
     if create_plots:
         plt.figure(figsize=(10, 5))
@@ -57,12 +51,10 @@ def pcap_analysis(filename, create_plots=False):
 
     # Returning DataFrame with basic statistics
     stats_df = df.describe()
-
     return stats_df
 
 if __name__ == "__main__":
     # filename = "example.pcap"
     filename = sys.argv[1]
-
     stats_df = pcap_analysis(filename)
     print(stats_df)
