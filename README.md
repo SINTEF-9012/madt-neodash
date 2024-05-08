@@ -33,7 +33,7 @@ Navigate to the `statistics` directory and build the Dockerfile for the statisti
 docker build -t statistics -f Dockerfile .
 ```
 
-Create an environment and install Python (v3.10), flask (v3.0.0), minio (v7.1.17), neo4j (v5.15.0), poetry (v1.7.1), openai (v0.28.1), pyyaml (v6.0.1), strenum (v0.4.15), dpkt (v1.9.8) and paho-mqtt (v1.6.1) OR use connection/environment.yml file to create Conda environment:
+Create an environment and install Python (v3.10), flask (v3.0.0), minio (v7.1.17), neo4j (v5.15.0), poetry (v1.7.1), openai (v0.28.1), pyyaml (v6.0.1), strenum (v0.4.15), dpkt (v1.9.8), influxdb-client (v1.42.0) and paho-mqtt (v1.6.1) OR use connection/environment.yml file to create Conda environment:
 ```
 conda env create -f environment.yml
 ```

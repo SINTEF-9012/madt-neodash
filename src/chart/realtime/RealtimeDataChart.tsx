@@ -9,26 +9,24 @@ const RealtimeDataChart = (props: ChartProps) => {
   // Hold state for date selection
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  // Function to retrieve data within time frame, activated by user
-  const fetchData = async () => {
-    // Move below code here
-    console.log("[RealtimeDataChart.tsx] TODO Fetch from InfluxDB")
-  }
-  //  try {
-  //    const response = await axios.get('http://localhost:4999/influxdb_query_timeframe', {
-  //      params: {
-  //        endpoint: endpoint,
-  //        start: startDate,
-  //        end: endDate
-  //      } 
-  //    });
-  //    console.log(response.data); // For now, just log the response
-  //    console.log('[RealtimeDataChart.tsx] Fetched time frame data.');
-  //  } catch (error) {
-  //    console.error('[RealtimeDataChart.tsx] Error fetching data:', error);
-  //  }
-  //};
 
+  // Function to retrieve data within time frame, activated by clicking "Donwload"
+  const downloadData = async () => {
+    try {
+      const response = await axios.get('http://localhost:4999/influxdb_download_data', {
+        params: {
+          endpoint: endpoint,
+          start: startDate,
+          end: endDate
+        } 
+      });
+      console.log('[RealtimeDataChart.tsx] Fetched user-defined data.');
+      console.log(response.data); // For now, just log the response
+    } catch (error) {
+      console.error('[RealtimeDataChart.tsx] Error fetching data:', error);
+    }
+  };
+ 
   return (
     <div style={{ marginTop: '0px', height: '100%', textAlign: 'center' }}>
       <div style={{ marginTop: '20px' }}>
@@ -58,7 +56,7 @@ const RealtimeDataChart = (props: ChartProps) => {
           cursor: 'pointer',
           marginTop: '20px'
         }} 
-        onClick={fetchData}
+        onClick={downloadData}
       >
         Download
       </button>
