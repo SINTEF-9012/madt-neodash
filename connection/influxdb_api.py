@@ -3,6 +3,7 @@ from influxdb_client import InfluxDBClient
 from influxdb_client.client.write_api import SYNCHRONOUS
 from datetime import datetime, timezone
 import csv
+import os
 
 app = Flask(__name__)
 
@@ -49,9 +50,12 @@ def influxdb_download_data():
     result = query_api.query(org=INFLUXDB_ORG, query=query)
 
     # Define the CSV file path
-    file_path = 'output.csv'
+    file_path = 'outputs/output.csv'
 
-    # Open a file to write and save locally (output.csv)
+    # Create outputs directory
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+
+    # Open a file to write and save locally
     with open(file_path, mode='w', newline='') as file:
         fieldnames = ['time', 'measurement', 'field', 'value']
         writer = csv.DictWriter(file, fieldnames=fieldnames)
