@@ -51,7 +51,7 @@ def influxdb_download_data():
     # Define the CSV file path
     file_path = 'output.csv'
 
-    # Open a file to write
+    # Open a file to write and save locally (output.csv)
     with open(file_path, mode='w', newline='') as file:
         fieldnames = ['time', 'measurement', 'field', 'value']
         writer = csv.DictWriter(file, fieldnames=fieldnames)
