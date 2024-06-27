@@ -56,12 +56,13 @@ Run in another terminal:
 yarn run dev
 ```
 
-Activate the environment, navigate to the connection folder and run `minio_api.py`, `neo4j_api.py` and `analytics_api.py` files, using the following commands:
+Activate the environment, navigate to the connection folder and run `minio_api.py`, `neo4j_api.py`, `influxdb_api.py` and `analytics_api.py` files, using the following commands:
 
 ```
 python minio_api.py
 python neo4j_api.py
 python analytics_api.py
+python influxdb_api.py
 ```
 
 Navigate to the `statistics` directory, and run the following command (after having started the rest of the services as explained above):
