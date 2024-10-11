@@ -6,6 +6,8 @@ COPY . .
 
 RUN conda env create -f enviroment.yml
 
+EXPOSE 3000
+
 CMD ["bash", "run.sh"]
 
 

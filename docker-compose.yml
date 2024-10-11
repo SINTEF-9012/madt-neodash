@@ -55,12 +55,12 @@ services:
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
 
-  mqtt_kafka_bridge:
-    image: mqtt-kafka-bridge
-    depends_on:
-      - kafka
-    networks:
-      - sindit_network
+  # mqtt_kafka_bridge:
+  #   image: mqtt-kafka-bridge
+  #   depends_on:
+  #     - kafka
+  #   networks:
+  #     - sindit_network
 
 
 volumes:
