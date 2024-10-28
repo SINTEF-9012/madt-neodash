@@ -1,12 +1,11 @@
-python == 3.10.13
-neo4j == 5.25.0
-minio == 7.1.17
-flask == 3.0.0
-pip == 23.3
-poetry == 1.7.1
-openai == 0.28.1
-pyyaml == 6.0.1
-strenum == 0.4.15
-dpkt == 1.9.8
-paho-mqtt == 1.6.1
-influxdb-client == 1.42.0
+neo4j==5.25.0
+minio==7.1.17
+flask==3.0.0
+pip==23.3
+poetry==1.7.1
+openai==0.28.1
+pyyaml==6.0.1
+strenum==0.4.15
+dpkt==1.9.8
+paho-mqtt==1.6.1
+influxdb-client==1.42.0
