@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: madt4bc
+  namespace: dynabic
+  labels:
+    app: madt4bc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: madt4bc
+  template:
+    metadata:
+      labels:
+        app: madt4bc
+    spec:
+      containers:
+      - name: madt4bc-frontend
+        image: registry.gitlab.com/dynabic/madt4bc/madt4bc-frontend:slim
+        ports:
+        - containerPort: 3000
+          name: http
+      - name: madt4bc-backend
+        image: registry.gitlab.com/dynabic/madt4bc/madt4bc-backend:slim  
+        ports: ## Ports to map
+        - containerPort: 4999
+          name: http-influx
+        - containerPort: 5000
+          name: http-minio
+        - containerPort: 5001
+          name: http-neo4j
+      

@@ -1,5 +1,5 @@
 # build stage
-FROM node AS build-stage
+FROM node:slim AS build-stage
 
 RUN yarn global add typescript jest
 WORKDIR /usr/local/src/neodash
