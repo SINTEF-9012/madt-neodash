@@ -3,6 +3,7 @@ minio==7.1.17
 flask==3.0.0
 flask-restful
 pip==23.3
+poetry==1.7.1
 openai
 pyyaml==6.0.1
 strenum==0.4.15

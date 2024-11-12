@@ -76,7 +76,7 @@ const StaticDataChart = (props: ChartProps) => {
 
   return ( 
     <div style={{ marginTop: '0px', height: '100%', textAlign: 'center' }}>
-      <p style={{ fontSize: '18px' }}> Download latest file to temp directory: </p>
+      <p style={{ fontSize: '18px' }}> Download latest file to downloads directory: </p>
       <button onClick={handleDownload} style={{ fontSize: '18px', padding: '10px 20px' }}>
         Download
       </button>

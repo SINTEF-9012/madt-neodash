@@ -25,14 +25,10 @@ TODO: Update with docker build command for neodash & databases
 
 To setup environment and run all services, we have two alternatives:
 
-Navigate to the `connection` directory and build containers using following command for each subdirectory:
+Navigate to the `connection/api` directory and build container using:
 
 ```
-docker build -t minio -f Dockerfile .
-docker build -t neo4j -f Dockerfile .
-docker build -t influxdb -f Dockerfile .
-docker build -t statistics -f Dockerfile .
-docker build -t analytics -f Dockerfile .
+docker build -t api -f Dockerfile-api .
 ```
 
 
@@ -50,14 +46,10 @@ Run in another terminal:
 yarn run dev
 ```
 
-To run services, navigate to the `connection` directory, go to each corresponding subdirectory, and run: 
+To run services, navigate to the `connection/api` and run: 
 
 ```
-docker run -p 5000:5000 -v ${PWD}/temp:/usr/minio/temp --network=sindit_network -it minio
-docker run -p 5001:5001 --network=sindit_network -it neo4j
-docker run -p 4999:4999 -v ${PWD}/outputs:/usr/influxdb/outputs --network=sindit_network -it influxdb
-docker run -p 5003:5003 --network=sindit_network -it statistics
-docker run -p 5002:5002 -v ${PWD}/temp:/usr/analytics/temp --network=sindit_network -it analytics
+docker run -p 4999:4999 -p 5000:5000 -p 5001:5001 -p 5002:5002 -p 5003:5003 -v ${PWD}/temp:/usr/api/temp -v ${PWD}/outputs:/usr/api/outputs -v ${PWD}/downloads:/usr/api/downloads --network=sindit_network -it api
 ```
 
 TODO: Update with docker run command for neodash & databases
