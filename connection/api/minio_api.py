@@ -44,63 +44,31 @@ def minio_local_download():
     download_last_object(bucket_name=bucket_name, file_path=download_dir) 
     return jsonify({'status': 200})
 
-@app.route('/minio_update_database', methods=['GET'])
-def minio_update_database():
-    bucket_name = request.args.get('asset_id')
-    bucket_name = bucket_name.lower() # Bucket names are always low cased
-    topic = request.args.get('topic')
-    if topic == None or topic == "":
-        print(f"[minio_api.py] Error: topic not found. Update endpoint of asset with topic name.")
-        return jsonify({'status': 500})
-    print(f"[minio_api.py] Received request to update bucket: ", bucket_name, " with latest message from kafka topic: ", topic)
+@app.route('/minio_upload_file', methods=['POST'])
+def minio_upload_file():
+    if 'file' not in request.files:
+        return jsonify({'status': 400})
+    file = request.files['file']
+    asset_id = request.form.get('asset_id')
+    asset_id = asset_id.lower() # Bucket names are always low cased
+    print(f"[minio_api.py] Received request to load file {file.filename} to bucket {asset_id}")
+    # Process the file as needed (e.g., save to database or storage)
+    download_dir = "./downloads"
+    if not os.path.exists(download_dir):
+        os.makedirs(download_dir)
+    # Save the file locally
+    file_path = os.path.join(download_dir, file.filename)
+    file.save(file_path)
     try:
-        # Kafka consumer setup
-        consumer = KafkaConsumer(
-                topic,
-                bootstrap_servers=[config.get('kafka', 'bootstrap_servers')],
-                security_protocol=config.get('kafka', 'security_protocol'),
-                sasl_mechanism=config.get('kafka', 'sasl_mechanism'),
-                sasl_plain_username=config.get('kafka', 'sasl_plain_username'),
-                sasl_plain_password=config.get('kafka', 'sasl_plain_password'),
-                auto_offset_reset=config.get('kafka', 'auto_offset_reset'),  # Start reading at the earliest message
-                enable_auto_commit=True,        # Automatically commit offsets
-                value_deserializer=lambda x: x.decode('utf-8')  # Deserialize messages to string
-        )
-        """
-        # Assuming you want to do something with the messages
-        for message in consumer:
-            print(f'Received message: {message.value} from partition: {message.partition}, offset: {message.offset}')
-            break  # TODO modify this based on your use case
-        return jsonify({'status': 200})
-        """
-        # Process messages
-        messages = [msg.value for msg in consumer]
-        if not messages:
-            print(f"[minio_api.py] No messages in broker. Returning.")
-            return jsonify({'status': 200})
-
-        # Save the last message to a temporary file and upload it
-        last_message = messages[-1]
-        with tempfile.NamedTemporaryFile(delete=False, mode='w+') as tmp:
-            tmp.write(last_message)
-            tmp_path = tmp.name
-        
-        # Upload to MinIO
-        uploaded = upload_object(asset_id, 'last_message.txt', tmp_path)
-        os.unlink(tmp_path)  # Clean up the temporary file
-        if uploaded:
-            print(f"[minio_api.py] Object uploaded successfully.")
-            return jsonify({'status': 200})
-        else:
-            print(f"[minio_api.py] Object could not be uploaded.")
-            return jsonify({'status': 500})
+        # Upload file to MinIO
+        upload_object(asset_id, file.filename, file_path)
     except Exception as e:
-        return jsonify({'status': 500})
-
-#@app.route('/test')
-#def test():
-#    print("Test route accessed")
-#    return "Server is running"
+        return jsonify({'status': 500, 'error': 'Failed to upload to MinIO', 'details': str(e)}), 500
+    finally:
+        # Clean up the temporary file after upload
+        if os.path.exists(file_path):
+            os.remove(file_path)
+    return jsonify({'status': 200})
 
 # - - - - -  - - - - -   - - - - -  Add more customized functions here: - - - - -   - - - - -   - - - - - 
 @app.route('/minio_list_objects', methods=['GET'])
