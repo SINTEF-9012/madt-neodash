@@ -43,21 +43,29 @@ const StatisticsChart = (props: ChartProps) => {
   const { records, settings, getGlobalParameter } = props;
   const node = records && records[0] && records[0]._fields && records[0]._fields[0] ? records[0]._fields[0] : {};
   const [statistics, setStatistics] = useState('');
-  const endpoint = node.properties['endpoint'] // Obs! Used as bucket name
-  const name = node.properties['name']
+  const endpoint = node.properties['endpoint']; // Obs! Used as bucket name
 
-  const fetchStatistics = () => {
-    const httpString = 'http://localhost:5003/get_statistics?endpoint=' + endpoint;
-    axios.get(httpString)
-      .then((response) => {
-        const apiStatistics = response.data;
-        console.log("HERE3");
-		    console.log(response.data);
-        setStatistics(apiStatistics); 
-      })
-      .catch((error) => {
-        console.error('[StatisticsChart.tsx] Error fetching statistics:', error);
+  const fetchStatistics = async () => {
+    try {
+      const urlResponse = await axios.get(`http://localhost:5000/minio_get_last_url`, {
+        params: { endpoint: endpoint }
       });
+      const url = urlResponse.data.url;
+      console.log('[StatisticsChart.tsx] Fetched URL:', url);
+      const statResponse = await axios.get(`http://localhost:5003/get_statistics`, {
+        params: { url: url }
+      });
+      console.log(statResponse.data);
+      setStatistics(statResponse.data); // Assuming response data is the url
+      if (statResponse.status === 200){
+        console.log('[StatisticsChart.tsx] Fetched statistics.');
+      } else {
+        // TODO: If result is not fetched succesfully, alert user:
+        alert("[StatisticsChart.tsx] Error encountered in fetching statistics.");
+      }
+    } catch (error) {
+    console.error('[CountChart.tsx] Failed fetching result from static node:', error);
+    }
   };
 
   useEffect(() => {

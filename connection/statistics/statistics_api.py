@@ -5,7 +5,6 @@ import sys
 import matplotlib.pyplot as plt
 import pandas as pd
 from flask import Flask, jsonify, request
-from minio_access import get_url_last_object
 from scapy.all import IP, TCP, rdpcap
 
 import urllib.request
@@ -29,14 +28,12 @@ def apply_cors(response):
 def get_statistics():
     import time
     start = time.time()
-    endpoint = request.args.get("endpoint")
-    print("[statistics.py] Received request to analyze PCAP from bucket: "+ endpoint)
-    url = get_url_last_object(bucket_name=endpoint)
+    url = request.args.get("url")
     # Download file:
     urllib.request.urlretrieve(url, "file.pcap")
     # Run analysis:
     df = pcap_analysis("file.pcap")
-    print("[statistics.py] PCAP Analysis returned:")
+    print("[statistics_api.py] PCAP Analysis returned:")
     print(df)
     end = time.time()
     print("=======================")

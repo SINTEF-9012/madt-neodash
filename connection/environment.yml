@@ -12,3 +12,7 @@ dependencies:
   - dpkt=1.9.8
   - paho-mqtt=1.6.1
   - influxdb-client=1.42.0
+  - matplotlib=3.9.2
+  - scapy=2.6.0
+  - pandas=2.0.3
+  - numpy

@@ -31,16 +31,16 @@ const AnalyticsChart = (props: ChartProps) => {
       });
       // If the task update is successful, call the analytics API to generate code:
       if (updateTaskResponse.status === 200) {
+        const urlResponse = await axios.get(`http://localhost:5000/minio_get_last_url`, {
+          params: { endpoint: endpoint }
+        });
+        const url = urlResponse.data.url;
+        console.log('[AnalyticsChart.tsx] Fetched URL (for download):', url);
         const codeResponse = await axios.get(`http://localhost:5002/analytics_generate_code`, {
-          params: { task: inputText }
+          params: { task: inputText, url: url }
         });
         const generatedCode = codeResponse.data.code;
         const generatedLib = codeResponse.data.lib;
-        console.log('[AnalyticsChart.tsx] Downloading data for analysis ...');
-        const httpString = 'http://localhost:5000/minio_local_download?endpoint=' + endpoint;
-        axios.get(httpString).then((response) => { const apiStatus = response.data.status;
-                                                      console.log('Download status:', apiStatus);
-                                                     }).catch((error) => {console.error('Failed to download data:', error);});
         console.log('[AnalyticsChart.tsx] Running generated code ...');
         const runResponse = await axios.get(`http://localhost:5002/analytics_run_code`, {params: {code: generatedCode, lib: generatedLib}});
         // Save in local (card) variable:
@@ -61,7 +61,7 @@ const AnalyticsChart = (props: ChartProps) => {
 
   return (
     <div style={{ marginTop: '20px', height: 'auto', textAlign: 'center', padding: '20px' }}>
-      <p style={{ fontSize: '18px' }}>Describe the task in natural language:</p>
+      <p style={{ fontSize: '18px' }}> Provide task:</p>
       <textarea
         value={inputText}
         onChange={handleInputChange}

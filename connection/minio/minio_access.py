@@ -4,6 +4,7 @@ import configparser
 import time
 from datetime import timedelta
 import os
+from urllib.parse import urlparse, urlunparse
 
 
 client = None
@@ -14,12 +15,12 @@ def main():
     config = configparser.ConfigParser(allow_no_value = True)
     # Update with right user (use case/ DYNABIC component)
     config.read('minio_config.ini')
-
     # Initialize client:
     client = Minio(config.get('minio', 'endpoint'),
         access_key=config.get('minio', 'access_key'),
         secret_key=config.get('minio', 'secret_key'),
         secure = config.getboolean('minio', 'secure'))
+
 
 ### Bucket Operations ###
 def create_bucket(bucket_name):
@@ -152,15 +153,13 @@ def download_last_object(bucket_name, file_path, prefix = None, version_id=None)
     except S3Error as exc:
         print("[minio_access.py] Error occurred.", exc)
     try:
-        # Ensure the directory exists:
-        directory = os.path.dirname(file_path)
-        if not os.path.exists(directory):
-            os.makedirs(directory)
         # List objects in the bucket
         objects = client.list_objects(bucket_name, prefix=prefix, recursive=True)
         # Retrieve the latest added object
         latest_object = max(objects, key=lambda obj: obj.last_modified)
         # Download object locally on path
+        # Use the object's original name for the download path
+        file_path = os.path.join(file_path, latest_object.object_name)
         # TODO: Provide the correct SSE-C key if encrypted object
         client.fget_object(bucket_name, latest_object.object_name, file_path, version_id = version_id)
         print("[minio_access.py] Local download complete.")
@@ -170,7 +169,8 @@ def download_last_object(bucket_name, file_path, prefix = None, version_id=None)
 
 def upload_object(bucket_name, object_name, file_path, prefix = None, metadata = None):
     '''
-        Upload object (and eventual metadata) to given bucket (and using eventual prefix) from given path. Remmber to add the extension to object_name as well!
+        Upload object (and eventual metadata) to given bucket (and using eventual prefix) from given path.
+        Remmber to add the extension to object_name as well!
     '''
     global client
     try:
@@ -253,7 +253,7 @@ def get_url_last_object(bucket_name, prefix=None, expires=timedelta(hours=1)):
     except S3Error as exc:
         print("[minio_access.py] Error occurred:", exc)
         return None
-
+    
 '''
 if __name__ == "__main__":
     try:

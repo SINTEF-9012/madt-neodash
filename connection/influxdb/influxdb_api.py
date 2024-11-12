@@ -8,7 +8,7 @@ import os
 app = Flask(__name__)
 
 # InfluxDB settings
-INFLUXDB_URL = 'http://localhost:8086'
+INFLUXDB_URL = 'http://sindit-influx-db:8086'
 INFLUXDB_TOKEN = 'sindit_influxdb_admin_token'
 INFLUXDB_ORG = 'sindit'
 
@@ -50,10 +50,12 @@ def influxdb_download_data():
     result = query_api.query(org=INFLUXDB_ORG, query=query)
 
     # Define the CSV file path
-    file_path = 'outputs/output.csv'
+    file_path = './outputs'
 
-    # Create outputs directory
-    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    if not os.path.exists(file_path):
+        os.makedirs(file_path)
+
+    file_path = os.path.join(file_path, "influxdb_outputs.csv")
 
     # Open a file to write and save locally
     with open(file_path, mode='w', newline='') as file:
@@ -93,4 +95,5 @@ def influxdb_download_data():
 
 
 if __name__ == '__main__':
-    app.run(debug=False, port=4999)
+    app.run(host="0.0.0.0", debug=False, port=4999)
+

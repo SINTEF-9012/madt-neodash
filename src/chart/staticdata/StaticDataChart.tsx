@@ -29,6 +29,23 @@ const StaticDataChart = (props: ChartProps) => {
       });
   };
 
+  const handleDownload = () => {
+    // Trigger the download function in `minio_api.py`
+    const httpStringDownload = `http://localhost:5000/minio_local_download?endpoint=${endpoint}`;
+    axios.get(httpStringDownload)
+      .then((response) => {
+        if (response.data.status === 200) {
+          console.log('[StaticDataChart.tsx] Download triggered successfully.');
+          // Add any additional success handling if needed
+        } else {
+          console.error('[StaticDataChart.tsx] Error triggering download:', response.data);
+        }
+      })
+      .catch((error) => {
+        console.error('[StaticDataChart.tsx] Error triggering download:', error);
+      });
+  };
+
   useEffect(() => {
     // Fetch the URL when the component mounts
     fetchUrl();
@@ -56,10 +73,13 @@ const StaticDataChart = (props: ChartProps) => {
     }
   }, [url, endpoint]); // Re-run when `endpoint` and 'url' changes
 
+
   return ( 
-    <div style={{ marginTop: '0px', height: '100%', textAlign: 'center'}}>
-      <p style={{ fontSize: '18px' }}> Click to download PCAP: </p>
-      {url && <a href={url} target="_blank" rel="noopener noreferrer"><button style={{ fontSize: '18px', padding: '10px 20px' }}>Download</button></a>}
+    <div style={{ marginTop: '0px', height: '100%', textAlign: 'center' }}>
+      <p style={{ fontSize: '18px' }}> Download latest file to temp directory: </p>
+      <button onClick={handleDownload} style={{ fontSize: '18px', padding: '10px 20px' }}>
+        Download
+      </button>
     </div>
   );
 };

@@ -21,26 +21,20 @@ Make sure chart.js, react-chartjs-2 and cl-react-graph are installed, if not, us
 yarn add chart.js, react-chartjs-2, cl-react-graph
 ```
 
-Build local Docker image for MQtt-Kafka bridge (the rest of the Docker images are pulled from web):
+TODO: Update with docker build command for neodash & databases
+
+To setup environment and run all services, we have two alternatives:
+
+Navigate to the `connection` directory and build containers using following command for each subdirectory:
 
 ```
-docker build -t mqtt-kafka-bridge -f docker/Dockerfile .
-```
-
-Navigate to the `statistics` directory and build the Dockerfile for the statistics module:
-
-```
+docker build -t minio -f Dockerfile .
+docker build -t neo4j -f Dockerfile .
+docker build -t influxdb -f Dockerfile .
 docker build -t statistics -f Dockerfile .
+docker build -t analytics -f Dockerfile .
 ```
 
-Create an environment and install Python (v3.10), flask (v3.0.0), minio (v7.1.17), neo4j (v5.15.0), poetry (v1.7.1), openai (v0.28.1), pyyaml (v6.0.1), strenum (v0.4.15), dpkt (v1.9.8), influxdb-client (v1.42.0) and paho-mqtt (v1.6.1) OR use connection/environment.yml file to create Conda environment:
-```
-conda env create -f environment.yml
-```
-To verify installation: 
-```
-conda env list
-```
 
 ## Setup
 
@@ -56,20 +50,17 @@ Run in another terminal:
 yarn run dev
 ```
 
-Activate the environment, navigate to the connection folder and run `minio_api.py`, `neo4j_api.py`, `influxdb_api.py` and `analytics_api.py` files, using the following commands:
+To run services, navigate to the `connection` directory, go to each corresponding subdirectory, and run: 
 
 ```
-python minio_api.py
-python neo4j_api.py
-python analytics_api.py
-python influxdb_api.py
-```
-
-Navigate to the `statistics` directory, and run the following command (after having started the rest of the services as explained above):
-
-```
+docker run -p 5000:5000 -v ${PWD}/temp:/usr/minio/temp --network=sindit_network -it minio
+docker run -p 5001:5001 --network=sindit_network -it neo4j
+docker run -p 4999:4999 -v ${PWD}/outputs:/usr/influxdb/outputs --network=sindit_network -it influxdb
 docker run -p 5003:5003 --network=sindit_network -it statistics
+docker run -p 5002:5002 -v ${PWD}/temp:/usr/analytics/temp --network=sindit_network -it analytics
 ```
+
+TODO: Update with docker run command for neodash & databases
 
 ### Accessing Database and Dashboard
 

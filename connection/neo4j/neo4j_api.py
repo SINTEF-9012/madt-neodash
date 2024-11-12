@@ -3,8 +3,7 @@ from neo4j import GraphDatabase
 
 app = Flask(__name__)
 
-# Configure Neo4j connection - TODO: Create .ini file for this too.
-uri = "bolt://localhost:7687"  # Replace with your Neo4j instance
+uri = "bolt://sindit-neo4j-kg:7687"  # Replace with your Neo4j instance
 username = "neo4j"             # Replace with your username
 password = "sindit-neo4j"        # Replace with your password
 driver = GraphDatabase.driver(uri, auth=(username, password))
@@ -111,6 +110,6 @@ def neo4j_get_data():
         return jsonify(result_data)
 
 if __name__ == '__main__':
-    app.run(host="localhost", port=5001)
+    app.run(host="0.0.0.0", port=5001)
 
 

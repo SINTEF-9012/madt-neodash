@@ -1,4 +1,6 @@
 *.credential
+kafka_config.ini
+openaiapi.ini
 .idea
 *.iml
 *.pem
@@ -48,3 +50,6 @@ __pycache__/
 
 # later additions
 connection/temp
+integration/
+outputs/
+temp/

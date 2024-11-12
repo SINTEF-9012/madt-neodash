@@ -1,0 +1,5 @@
+neo4j==5.25.0
+flask==3.0.0
+pip==23.3
+pyyaml==6.0.1
+strenum==0.4.15

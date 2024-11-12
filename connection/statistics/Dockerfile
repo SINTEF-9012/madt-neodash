@@ -7,10 +7,9 @@ RUN pip3 install flask-restful
 RUN pip3 install scapy
 RUN pip3 install pandas
 RUN pip3 install matplotlib
-RUN pip3 install minio
 
-COPY ./* ./
+COPY . .
 
 EXPOSE 5003
 
-CMD ["python3", "statistics.py"]
+CMD ["python3", "statistics_api.py"]
