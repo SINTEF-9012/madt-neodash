@@ -1,5 +1,17 @@
 from flask import Flask, request, jsonify
 from neo4j import GraphDatabase
+from kafka import KafkaProducer, KafkaConsumer
+from threading import Thread
+import configparser
+import json
+import time
+
+# Load configurations from .ini file
+config = configparser.ConfigParser()
+config.read('kafka_config.ini')
+
+# Global graph data
+graph_data = []
 
 app = Flask(__name__)
 
@@ -108,8 +120,58 @@ def neo4j_get_data():
         result = session.run(query)
         result_data = [record.data() for record in result]
         return jsonify(result_data)
+    
+def neo4j_graph():
+    # Query to match all nodes and relationships
+    query = """
+    MATCH (n)-[r]->(m)
+    RETURN n, r, m
+    """
+    try:
+        # Get query result and send to topic:
+        with driver.session() as session:
+            results = session.run(query)
+            new_graph_data = []
+            for record in results:
+                node1 = record["n"]
+                rel = record["r"]
+                node2 = record["m"]
+                new_graph_data.append({
+                    "node1": {"id": node1.element_id, "properties": dict(node1)},
+                    "relationship": {"type": rel.type, "properties": dict(rel)},
+                    "node2": {"id": node2.element_id, "properties": dict(node2)},
+                })
+            return new_graph_data
+    except Exception as e:
+        return []
+    
+def neo4j_listen_for_changes(topic):
+    global graph_data
+    print(f'[neo4j_api.py] Checking for changes...')
+    # Fetch current graph: 
+    current_graph = neo4j_graph()
+    # Check IF the last message its same as current graph, if not, update:
+    if str(graph_data) != str(current_graph):
+        print(f"[neo4j_api.py] Updating kafka topic with changed KG.")
+        producer = KafkaProducer(
+            bootstrap_servers=[config.get('kafka', 'bootstrap_servers')],
+            security_protocol=config.get('kafka', 'security_protocol'),
+            sasl_mechanism=config.get('kafka', 'sasl_mechanism'),
+            sasl_plain_username=config.get('kafka', 'sasl_plain_username'),
+            sasl_plain_password=config.get('kafka', 'sasl_plain_password'),
+        )
+        graph_data = current_graph
+        producer.send(topic, json.dumps(graph_data).encode('utf-8'))
+        producer.flush()
+        producer.close()
+    # Checks updates indefinitely
+    time.sleep(10) # Check each 10 sec for updates
+    neo4j_listen_for_changes(topic)
+
 
 if __name__ == '__main__':
+    topic = "UC1.MADT4BC.topology"
+    listener_thread = Thread(target=neo4j_listen_for_changes, args=(topic,))
+    print(f'[neo4j_api.py] Listener starting...')
+    listener_thread.start()
     app.run(host="0.0.0.0", port=5001)
-
-
