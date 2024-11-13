@@ -40,14 +40,18 @@ spec:
           value: "apoc.*,algo.*,gds.*"
         - name: NEO4J_dbms.security.procedures.allowlist
           value: "gds.*"
-        # - name: NEO4J_dbms_connector_bolt_listen__address
-        #   value: ":7688"
-        # - name: NEO4J_dbms_connector_bolt_advertised__address
-        #   value: ":7688"
-        # - name: NEO4J_server_http_listen__address
-        #   value: "7475"
-        # - name: NEO4J_server_http_advertised__address
-        #   value: "7475"
+        - name: NEO4J_dbms_connector_bolt_listen__address
+          value: "0.0.0.0:7687"
+        - name: NEO4J_dbms_connector_bolt_advertised__address
+          value: "madt4bc-bolt.dynabic.dev:443"
+        - name: NEO4J_dbms_connector_http_listen__address
+          value: "0.0.0.0:7474"
+        # - name: NEO4J_dbms_connector_http_advertised__address
+        #   value: "madt4bc-neo4j.dynabic.dev:443"
+        - name: NEO4J_dbms_connector_https_advertised__address
+          value: "madt4bc-neo4j.dynabic.dev:443"
+        - name: NEO4J_dbms_connector_https_listen__address
+          value: "0.0.0.0:7473"
         volumeMounts: ## Volumes to mount
         - name: madt4bc-db
           mountPath: "/plugins"

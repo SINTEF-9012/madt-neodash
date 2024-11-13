@@ -33,24 +33,40 @@ spec:
         - name: NEO4J_AUTH
           value: "neo4j/sindit-neo4j"
         - name: NEO4JLABS_PLUGINS
-          value: '["apoc", "graph-algorithms"]'
+          value: '["apoc"]'
         - name: NEO4J_dbms_security_procedures_unrestricted
           value: "apoc.*,algo.*,gds.*"
         - name: NEO4J_dbms_security_procedures_whitelist
           value: "apoc.*,algo.*,gds.*"
         - name: NEO4J_dbms.security.procedures.allowlist
           value: "gds.*"
-        - name: NEO4J_apoc_import_file_enabled
-          value: "true"
-        - name: NEO4J_dbms_shell_enabled
-          value: "true"
+        - name: NEO4J_dbms_connector_bolt_listen__address
+          value: "0.0.0.0:7687"
+        - name: NEO4J_dbms_connector_bolt_advertised__address
+          value: "madt4bc-bolt.dynabic.dev:443"
+        - name: NEO4J_dbms_connector_http_listen__address
+          value: "0.0.0.0:7474"
+        # - name: NEO4J_dbms_connector_http_advertised__address
+        #   value: "madt4bc-neo4j.dynabic.dev:443"
+        - name: NEO4J_dbms_connector_https_advertised__address
+          value: "madt4bc-neo4j.dynabic.dev:443"
+        - name: NEO4J_dbms_connector_https_listen__address
+          value: "0.0.0.0:7473"
         volumeMounts: ## Volumes to mount
-        - name: neo4j-plugins
-          mountPath: "/var/lib/neo4j/plugins"
-        - name: neo4j-data
-          mountPath: "/var/lib/neo4j/data"
+        - name: madt4bc-db
+          mountPath: "/plugins"
+          subPath: "neo4j-plugins"
+        - name: madt4bc-db
+          mountPath: "/logs"
+          subPath: "neo4j-logs"
+        - name: madt4bc-db
+          mountPath: "/data"
+          subPath: "neo4j-data"
+        # - name: madt4bc-db
+        #   mountPath: "/var/lib/neo4j/conf/"
+        #   subPath: "neo4j-conf"
       - name: sindit-influx-db
-        image: neo4j:4.4-community
+        image: influxdb:2.2
         ports: ## Ports to map
         - containerPort: 8086
           name: http
@@ -68,10 +84,12 @@ spec:
         - name: DOCKER_INFLUXDB_INIT_ADMIN_TOKEN
           value: sindit_influxdb_admin_token
         volumeMounts:
-        - name: sindit-influx-db-data-volume
+        - name: madt4bc-db
           mountPath: /var/lib/influxdb2
-        - name: sindit-influx-db-config-volume
+          subPath: "influx-db"
+        - name: madt4bc-db
           mountPath: /etc/influxdb2
+          subPath: "influx-config"
       - name: sindit-minio-s3
         image: minio/minio
         ports: ## Ports to map
@@ -88,27 +106,14 @@ spec:
           value: sindit_minio
         - name: MINIO_ROOT_PASSWORD
           value: sindit_minio
-        command: ["server"]
-        args: ['--address 0.0.0.0:9000 --console-address ":9099" /data']
+        command: ["/bin/bash", "-c"]
+        args: ['minio server /data --address 0.0.0.0:9000 --console-address :9099']
         volumeMounts:
-        - name: sindit-minio-s3-volume
+        - name: madt4bc-db
           mountPath: data
+          subPath: "minio-db"
 
       volumes:
-      - name: neo4j-data
+      - name: madt4bc-db
         persistentVolumeClaim:
-          claimName: neo4j-data-claim
-      - name: neo4j-plugins
-        persistentVolumeClaim:
-          claimName: neo4j-plugin-claim
-      - name: sindit-influx-db-data-volume
-        persistentVolumeClaim:
-          claimName: sindit-influx-db-data-volume-claim
-      - name: sindit-influx-db-config-volume
-        persistentVolumeClaim:
-          claimName: sindit-influx-db-config-volume-claim
-      - name: sindit-minio-s3-volume
-        persistentVolumeClaim:
-          claimName: sindit-minio-s3-volume-claim
-
-
+          claimName: madt4bc-db-pvc

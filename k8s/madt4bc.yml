@@ -17,12 +17,12 @@ spec:
     spec:
       containers:
       - name: madt4bc-frontend
-        image: registry.gitlab.com/dynabic/madt4bc/madt4bc-frontend:slim
+        image: registry.gitlab.com/dynabic/madt4bc/madt4bc-frontend:latest
         ports:
         - containerPort: 3000
           name: http
       - name: madt4bc-backend
-        image: registry.gitlab.com/dynabic/madt4bc/madt4bc-backend:slim  
+        image: registry.gitlab.com/dynabic/madt4bc/madt4bc-backend:latest  
         ports: ## Ports to map
         - containerPort: 4999
           name: http-influx

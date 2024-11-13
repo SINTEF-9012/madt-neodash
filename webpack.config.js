@@ -51,6 +51,7 @@ module.exports = (env) => {
     devServer: {
       port: 3000,
       hot: true,
+      allowedHosts: "all"
     },
     plugins: production ? [] : [new webpack.HotModuleReplacementPlugin()],
     ignoreWarnings: [/Failed to parse source map/],

@@ -1,0 +1,36 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: madt4bcdb-ingress
+  namespace: dynabic
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: 500m
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "1200"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "1200"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "1200"
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - madt4bcdb.dynabic.dev
+      secretName: madt4bcdb-cert
+  rules:
+    - host: madt4bcdb.dynabic.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: madt4bc-neo4j
+                port:
+                  number: 7687
+          - path: /browser
+            pathType: Prefix
+            backend:
+              service:
+                name: madt4bc-neo4j
+                port:
+                  number: 7474
