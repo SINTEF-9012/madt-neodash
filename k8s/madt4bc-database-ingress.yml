@@ -1,7 +1,7 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: madt4bcdb-ingress
+  name: madt4bc-ingress
   namespace: dynabic
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
@@ -14,10 +14,32 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - madt4bcdb.dynabic.dev
-      secretName: madt4bcdb-cert
+        - madt4bc.dynabic.dev
+        - madt4bc-neo4j.dynabic.dev
+        - madt4bc-bolt.dynabic.dev
+      secretName: madt4bc-cert
   rules:
-    - host: madt4bcdb.dynabic.dev
+    - host: madt4bc.dynabic.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: madt4bc
+                port:
+                  number: 3000
+    - host: madt4bc-neo4j.dynabic.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: madt4bc-neo4j
+                port:
+                  number: 7474
+    - host: madt4bc-bolt.dynabic.dev
       http:
         paths:
           - path: /
@@ -27,10 +49,3 @@ spec:
                 name: madt4bc-neo4j
                 port:
                   number: 7687
-          - path: /browser
-            pathType: Prefix
-            backend:
-              service:
-                name: madt4bc-neo4j
-                port:
-                  number: 7474

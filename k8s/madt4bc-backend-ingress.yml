@@ -1,7 +1,7 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: madt4bc-ingress
+  name: madt4bc-backend-ingress
   namespace: dynabic
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
@@ -9,7 +9,7 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-connect-timeout: "1200"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "1200"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "1200"
-    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
 spec:
   ingressClassName: nginx
   tls:
@@ -20,10 +20,25 @@ spec:
     - host: madt4bc.dynabic.dev
       http:
         paths:
-          - path: /
+          - path: /minio-api(/|$)(.*)
             pathType: Prefix
             backend:
               service:
-                name: madt4bc
+                name: madt4bc-backend
                 port:
-                  number: 3000
+                  number: 5000
+          - path: /influx-api(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: madt4bc-backend
+                port:
+                  number: 4999
+          - path: /neo4j-api(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: madt4bc-backend
+                port:
+                  number: 5001
+    
