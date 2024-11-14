@@ -8,7 +8,8 @@ import os
 app = Flask(__name__)
 
 # InfluxDB settings
-INFLUXDB_URL = 'http://sindit-influx-db:8086'
+# INFLUXDB_URL = 'http://sindit-influx-db:8086'
+INFLUXDB_URL = 'http://madt4bc-minio-influx:8086'
 INFLUXDB_TOKEN = 'sindit_influxdb_admin_token'
 INFLUXDB_ORG = 'sindit'
 

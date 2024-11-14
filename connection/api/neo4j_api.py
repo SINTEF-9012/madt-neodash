@@ -15,7 +15,8 @@ graph_data = []
 
 app = Flask(__name__)
 
-uri = "bolt://sindit-neo4j-kg:7687"  # Replace with your Neo4j instance
+# uri = "bolt://sindit-neo4j-kg:7687"  # Replace with your Neo4j instance
+uri = "bolt://madt4bc-neo4j:7687"
 username = "neo4j"             # Replace with your username
 password = "sindit-neo4j"        # Replace with your password
 driver = GraphDatabase.driver(uri, auth=(username, password))
