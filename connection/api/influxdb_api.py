@@ -15,7 +15,7 @@ INFLUXDB_ORG = 'sindit'
 
 # Define a function to set the CORS headers
 def add_cors_headers(response):
-    response.headers['Access-Control-Allow-Origin'] = 'http://localhost:3000'  # allowed origin
+    response.headers['Access-Control-Allow-Origin'] = 'http://0.0.0.0:3000'  # allowed origin
     response.headers['Access-Control-Allow-Methods'] = 'POST, GET, OPTIONS'  # Adjust as needed
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
     return response
