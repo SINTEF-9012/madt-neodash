@@ -121,6 +121,12 @@ def neo4j_get_data():
         result_data = [record.data() for record in result]
         return jsonify(result_data)
     
+@app.route('/api/neo4j_get_graph', methods=['GET'])
+def neo4j_get_graph():
+    # API wrap for function obtaining current graph in Neo4J
+    data = neo4j_graph()
+    return jsonify(data)
+    
 def neo4j_graph():
     # Query to match all nodes and relationships
     query = """
