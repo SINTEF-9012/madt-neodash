@@ -49,8 +49,11 @@ __pycache__/
 *.pyc
 
 # later additions
-connection/temp
-downloads/
 integration/
+connection/temp
+connection/api/temp
+connection/api/downloads
+connection/api/outputs
+downloads/
 outputs/
 temp/
