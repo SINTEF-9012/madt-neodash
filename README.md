@@ -52,7 +52,7 @@ To run services, navigate to the `connection/api` and run:
 docker run -p 4999:4999 -p 5000:5000 -p 5001:5001 -p 5002:5002 -p 5003:5003 -v ${PWD}/temp:/usr/api/temp -v ${PWD}/outputs:/usr/api/outputs -v ${PWD}/downloads:/usr/api/downloads --network=sindit_network -it api
 ```
 
-For integration purposes, topology topic in connection/api/neo4j_api.py must be updated with correct UC ID. 
+For integration purposes, topology topic in connection/api/kafka_config must be updated with correct UC ID. 
 
 ### Accessing Database and Dashboard
 
