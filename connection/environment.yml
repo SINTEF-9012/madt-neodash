@@ -16,3 +16,6 @@ dependencies:
   - scapy=2.6.0
   - pandas=2.0.3
   - numpy
+  - matplotlib
+  - python-magic
+  - kafka-python
