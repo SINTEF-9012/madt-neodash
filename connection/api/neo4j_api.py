@@ -177,7 +177,7 @@ def neo4j_listen_for_changes(topic):
 
 
 if __name__ == '__main__':
-    topic = "UC1.MADT4BC.topology"
+    topic = config.get('kafka', 'topic')
     listener_thread = Thread(target=neo4j_listen_for_changes, args=(topic,))
     print(f'[neo4j_api.py] Listener starting...')
     listener_thread.start()
