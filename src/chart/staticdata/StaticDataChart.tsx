@@ -15,6 +15,7 @@ const StaticDataChart = (props: ChartProps) => {
   const [url, setUrl] = useState('');
   const endpoint = node.properties['endpoint']; // Obs! Used as bucket name
   const node_name = node.properties['name'];
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const fetchUrl = () => {
     // Existing code to fetch the URL
@@ -73,15 +74,125 @@ const StaticDataChart = (props: ChartProps) => {
     }
   }, [url, endpoint]); // Re-run when `endpoint` and 'url' changes
 
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      setSelectedFile(event.target.files[0]);
+    }
+  };
 
-  return ( 
-    <div style={{ marginTop: '0px', height: '100%', textAlign: 'center' }}>
-      <p style={{ fontSize: '18px' }}> Download latest file to downloads directory: </p>
-      <button onClick={handleDownload} style={{ fontSize: '18px', padding: '10px 20px' }}>
-        Download
-      </button>
+  const handleFileUpload = async () => {
+    if (!selectedFile) return;
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    formData.append('asset_id', endpoint);
+
+    try {
+      const response = await axios.post('http://localhost:5000/minio_upload_file', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      console.log('[DataSource.tsx] File upload returned following status:', response.data);
+    } catch (error) {
+      console.error('[DataSource.tsx] Error uploading file:', error);
+    }
+  };
+
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100%',
+        marginTop: '0px',
+      }}
+    >
+      {/* Upload Section */}
+      <div
+        style={{
+          width: '80%',
+          maxWidth: '400px',
+          padding: '15px',
+          marginBottom: '20px',
+          border: '1px solid #ccc',
+          borderRadius: '8px',
+          textAlign: 'center',
+          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+        }}
+      >
+        <h3 style={{ margin: '10px 0', fontSize: '20px', color: '#333' }}>Upload</h3>
+        <p style={{ margin: '5px 0', fontSize: '14px', color: '#555' }}>
+          Upload a file for static processing.
+        </p>
+        <div style={{ marginTop: '15px' }}>
+          <input
+            type="file"
+            onChange={handleFileChange}
+            style={{
+              margin: '10px 0',
+              padding: '8px',
+              fontSize: '14px',
+              cursor: 'pointer',
+            }}
+          />
+          <button
+            onClick={handleFileUpload}
+            style={{
+              padding: '10px 20px',
+              fontSize: '14px',
+              cursor: 'pointer',
+              backgroundColor: '#007BFF',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '4px',
+              marginTop: '10px',
+              transition: 'background-color 0.3s',
+            }}
+            disabled={!selectedFile}
+          >
+            Upload
+          </button>
+        </div>
+      </div>
+  
+      {/* Download Section */}
+      <div
+        style={{
+          width: '80%',
+          maxWidth: '400px',
+          padding: '15px',
+          border: '1px solid #ccc',
+          borderRadius: '8px',
+          textAlign: 'center',
+          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+        }}
+      >
+        <h3 style={{ margin: '10px 0', fontSize: '20px', color: '#333' }}>Download</h3>
+        <p style={{ margin: '10px 0', fontSize: '14px', color: '#555' }}>
+          Download the latest file to your downloads directory:
+        </p>
+        <button
+          onClick={handleDownload}
+          style={{
+            padding: '10px 20px',
+            fontSize: '14px',
+            cursor: 'pointer',
+            backgroundColor: '#28A745',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            transition: 'background-color 0.3s',
+          }}
+        >
+          Download
+        </button>
+      </div>
     </div>
   );
+  
 };
 
 export default StaticDataChart;

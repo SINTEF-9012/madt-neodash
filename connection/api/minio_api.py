@@ -1,16 +1,10 @@
 from flask import Flask, request, jsonify
 from minio_access import download_last_object, get_url_last_object, list_objects, upload_object
 import os
-from kafka import KafkaConsumer
-import configparser
-import tempfile
 
 
 app = Flask(__name__)
 
-# Load configurations from .ini file
-config = configparser.ConfigParser()
-config.read('kafka_config.ini')
 
 # Define a function to set the CORS headers
 def add_cors_headers(response):

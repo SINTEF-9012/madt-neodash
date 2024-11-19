@@ -60,39 +60,98 @@ const AnalyticsChart = (props: ChartProps) => {
   };
 
   return (
-    <div style={{ marginTop: '20px', height: 'auto', textAlign: 'center', padding: '20px' }}>
-      <p style={{ fontSize: '18px' }}> Provide task:</p>
+    <div
+      style={{
+        marginTop: '20px',
+        padding: '20px',
+        fontFamily: 'Arial, sans-serif',
+        maxWidth: '600px',
+        margin: 'auto',
+        borderRadius: '8px',
+        boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
+        backgroundColor: '#f9f9f9',
+      }}
+    >
+      <p
+        style={{
+          fontSize: '20px',
+          fontWeight: 'bold',
+          marginBottom: '10px',
+          color: '#333',
+        }}
+      >
+        Provide task:
+      </p>
       <textarea
         value={inputText}
         onChange={handleInputChange}
         placeholder="Example: I want the number of unique IP addresses."
-        style={{ width: '100%', height: '250px', fontSize: '18px', padding: '12px', margin: '10px auto', display: 'block',  border: '1px solid black' }}
+        style={{
+          width: '100%',
+          height: '300px', // Increased height
+          fontSize: '16px',
+          padding: '10px',
+          border: '1px solid #ccc',
+          borderRadius: '4px',
+          resize: 'none',
+          marginBottom: '15px',
+          boxSizing: 'border-box',
+        }}
       />
       <button
         onClick={handleSubmit}
         style={{
-          width: '100px',
-          height: '60px',
-          fontSize: '20px',
-          padding: '12px 20px',
-          marginTop: '15px',
-          marginBottom: '15px',
+          width: '120px',
+          height: '50px',
+          fontSize: '16px',
+          fontWeight: 'bold',
+          color: '#fff',
+          backgroundColor: '#007BFF',
+          border: 'none',
+          borderRadius: '4px',
           cursor: 'pointer',
           display: 'block',
-          margin: 'auto'
+          margin: '10px auto 20px auto',
+          transition: 'background-color 0.3s',
         }}
+        onMouseOver={(e) =>
+          (e.currentTarget.style.backgroundColor = '#0056b3')
+        }
+        onMouseOut={(e) =>
+          (e.currentTarget.style.backgroundColor = '#007BFF')
+        }
       >
         Solve
       </button>
-  
+
       {/* Result display area */}
-      <p style={{ fontSize: '18px' }}>Result:</p>
-      <div style={{ marginTop: '20px', textAlign: 'left', border: '1px solid black', minHeight: '250px', padding: '12px', width: '100%', margin: '10px auto',  fontSize: '18px'}}>
-        <div style={{ whiteSpace: 'pre-wrap' }}>{resultText}</div>
+      <p
+        style={{
+          fontSize: '20px',
+          fontWeight: 'bold',
+          marginBottom: '10px',
+          color: '#333',
+        }}
+      >
+        Solution:
+      </p>
+      <div
+        style={{
+          textAlign: 'left',
+          border: '1px solid #ccc',
+          minHeight: '300px', // Increased height
+          padding: '10px',
+          borderRadius: '4px',
+          backgroundColor: '#fff',
+          boxSizing: 'border-box',
+          fontSize: '16px',
+          whiteSpace: 'pre-wrap',
+        }}
+      >
+        {resultText || 'No result yet. Please provide a task and click "Solve".'}
       </div>
     </div>
   );
-  
 };
 
 export default AnalyticsChart;

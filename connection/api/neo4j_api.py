@@ -6,19 +6,19 @@ import configparser
 import json
 import time
 
-# Load configurations from .ini file
-config = configparser.ConfigParser()
-config.read('kafka_config.ini')
+# Load configurations from .ini files
+config_kafka = configparser.ConfigParser()
+config_kafka.read('kafka_config.ini')
+
+config_neo4j = configparser.ConfigParser()
+config_neo4j.read('neo4j_config.ini')
 
 # Global graph data
 graph_data = []
 
 app = Flask(__name__)
 
-uri = "bolt://sindit-neo4j-kg:7687"  # Replace with your Neo4j instance
-username = "neo4j"             # Replace with your username
-password = "sindit-neo4j"        # Replace with your password
-driver = GraphDatabase.driver(uri, auth=(username, password))
+driver = GraphDatabase.driver(config_neo4j.get('neo4j','uri'), auth=(config_neo4j.get('neo4j','username'), config_neo4j.get('neo4j','password')))
 
 # Define a function to set the CORS headers
 def add_cors_headers(response):
@@ -160,11 +160,11 @@ def neo4j_listen_for_changes(topic):
     if str(graph_data) != str(current_graph):
         print(f"[neo4j_api.py] Updating kafka topic with changed KG.")
         producer = KafkaProducer(
-            bootstrap_servers=[config.get('kafka', 'bootstrap_servers')],
-            security_protocol=config.get('kafka', 'security_protocol'),
-            sasl_mechanism=config.get('kafka', 'sasl_mechanism'),
-            sasl_plain_username=config.get('kafka', 'sasl_plain_username'),
-            sasl_plain_password=config.get('kafka', 'sasl_plain_password'),
+            bootstrap_servers=[config_kafka.get('kafka', 'bootstrap_servers')],
+            security_protocol=config_kafka.get('kafka', 'security_protocol'),
+            sasl_mechanism=config_kafka.get('kafka', 'sasl_mechanism'),
+            sasl_plain_username=config_kafka.get('kafka', 'sasl_plain_username'),
+            sasl_plain_password=config_kafka.get('kafka', 'sasl_plain_password'),
         )
         graph_data = current_graph
         producer.send(topic, json.dumps(graph_data).encode('utf-8'))
@@ -176,7 +176,7 @@ def neo4j_listen_for_changes(topic):
 
 
 if __name__ == '__main__':
-    topic = config.get('kafka', 'topic')
+    topic = config_kafka.get('kafka', 'topic')
     listener_thread = Thread(target=neo4j_listen_for_changes, args=(topic,))
     print(f'[neo4j_api.py] Listener starting...')
     listener_thread.start()
