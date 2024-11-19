@@ -1,21 +1,29 @@
 from flask import Flask, request, jsonify
 from influxdb_client import InfluxDBClient
+from influxdb_client import Point, WritePrecision
 from influxdb_client.client.write_api import SYNCHRONOUS
 from datetime import datetime, timezone
 import csv
 import os
+import json
+from kafka import KafkaConsumer, OffsetAndMetadata, TopicPartition
+from threading import Thread
+import configparser
+
+# Load configurations from .ini files
+config_kafka = configparser.ConfigParser()
+config_kafka.read('kafka_config.ini')
+
+config_influxdb = configparser.ConfigParser()
+config_influxdb.read('influxdb_config.ini')
 
 app = Flask(__name__)
 
-# InfluxDB settings
-# INFLUXDB_URL = 'http://sindit-influx-db:8086'
-INFLUXDB_URL = 'http://madt4bc-minio-influx:8086'
-INFLUXDB_TOKEN = 'sindit_influxdb_admin_token'
-INFLUXDB_ORG = 'sindit'
+client = InfluxDBClient(url=config_influxdb.get('influxdb','INFLUXDB_URL'), token=config_influxdb.get('influxdb','INFLUXDB_TOKEN'), org=config_influxdb.get('influxdb','INFLUXDB_ORG'))
 
 # Define a function to set the CORS headers
 def add_cors_headers(response):
-    response.headers['Access-Control-Allow-Origin'] = 'http://0.0.0.0:3000'  # allowed origin
+    response.headers['Access-Control-Allow-Origin'] = 'http://localhost:3000'  # allowed origin
     response.headers['Access-Control-Allow-Methods'] = 'POST, GET, OPTIONS'  # Adjust as needed
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
     return response
@@ -31,9 +39,6 @@ def influxdb_download_data():
     start_time = request.args.get('start')
     end_time = request.args.get('end')
     print("[influxdb_api.py] InfluxDB processes query from asset with uid " + bucket_id)
-
-    # Initialize InfluxDB client
-    client = InfluxDBClient(url=INFLUXDB_URL, token=INFLUXDB_TOKEN, org=INFLUXDB_ORG)
     query_api = client.query_api()
 
     # TODO Convert date format to compatible one (Obs: UTC, if not UTC -> adjust!)
@@ -48,7 +53,7 @@ def influxdb_download_data():
     print(query)
 
     # Execute the query
-    result = query_api.query(org=INFLUXDB_ORG, query=query)
+    result = query_api.query(org=config_influxdb.get("influxdb", "INFLUXDB_ORG"), query=query)
 
     # Define the CSV file path
     file_path = './outputs'
@@ -89,12 +94,78 @@ def influxdb_download_data():
 
     # Close the client
     client.close()
-
     print("[influxdb_api.py] InfluxDB query request processed for asset with id " + bucket_id)
-
     return jsonify(output)
+
+def dynamic_data_parser(data, point, parent_key=''):
+    for key, value in data.items():
+        compound_key = f"{parent_key}.{key}" if parent_key else key  # Create a compound key for nested data
+        if isinstance(value, dict):
+            # Recursive call to handle nested dictionary
+            dynamic_data_parser(value, point, compound_key)
+        elif isinstance(value, list):
+            # Convert list to string or handle as a list of values
+            if all(isinstance(item, (str, int, float)) for item in value):  # Simple list
+                point.field(compound_key, ','.join(map(str, value)))
+            else:
+                # For more complex data structures, you might need custom handling
+                continue
+        else:
+            # Assign as a field or a tag based on your criteria
+            if isinstance(value, str) and len(value) < 50:  # Example tag criteria
+                point.tag(compound_key, value)
+            elif isinstance(value, (int, float, str)):  # General field handling
+                point.field(compound_key, value)
+
+def influxdb_upload_message(message, uid, topic):
+    data_dict = json.loads(message)
+    point = Point(topic)
+    dynamic_data_parser(data_dict, point)
+    # Optionally add a timestamp, here using system time
+    point.time(datetime.now(), WritePrecision.NS)
+    write_api = client.write_api()
+    write_api.write(bucket=uid, record=point)
+    write_api.close()
+
+
+def influxdb_realtime_upload(topic, uid):
+    print(f'[influxdb_api.py] Listening on topic {topic} ...')
+    consumer = KafkaConsumer( topic,
+        bootstrap_servers=[config_kafka.get('kafka', 'bootstrap_servers')], # REALTIME: Add topic too
+        security_protocol=config_kafka.get('kafka', 'security_protocol'),
+        sasl_mechanism=config_kafka.get('kafka', 'sasl_mechanism'),
+        sasl_plain_username=config_kafka.get('kafka', 'sasl_plain_username'),
+        sasl_plain_password=config_kafka.get('kafka', 'sasl_plain_password'),
+        auto_offset_reset=config_kafka.get('kafka', 'auto_offset_reset'),  # Start reading at the earliest message
+        enable_auto_commit=True,        # REALTIME SET True else False
+        value_deserializer=lambda x: x.decode('utf-8')  # Deserialize messages to string
+    )
+    #consumer.assign([TopicPartition(topic, 0)])                    # REALTIME --> Comment out this part
+    #consumer.seek_to_end(TopicPartition(topic, 0))                 # REALTIME --> Comment out this part
+    #last_offset = consumer.position(TopicPartition(topic, 0)) - 1  # REALTIME --> Comment out this part
+    #if last_offset >= 0:                                           # REALTIME --> Comment out this part
+    #    consumer.seek(TopicPartition(topic, 0), last_offset)       # REALTIME --> Comment out this part
+    try:
+        for message in consumer:
+            print(f'[influxdb_api.py] Uploading new message to bucket {uid} ...')
+            print(f'Received message: {message.value}')
+            influxdb_upload_message(message.value, uid, topic)
+    except Exception as e:
+        print(f'[influxdb_api.py] Error encountered for realtime upload to bucket {uid}. Error: {e}')
+    finally:
+        consumer.close()
+        print(f'[influxdb_api.py] Consumer closed for topic {topic}.')
+    #else:
+    #    print(f'No messages found in topic {topic}.')  # REALTIME --> Comment out this part
+    #    consumer.close()                               # REALTIME --> Comment out this part
 
 
 if __name__ == '__main__':
+    topic_uid_dict = json.loads(config_kafka['kafka']['topic_mapping'])
+    for topic, uid_list in topic_uid_dict.items():
+        for uid in uid_list:
+            listener_thread = Thread(target=influxdb_realtime_upload, args=(topic,uid,))
+            print(f'[influxdb_api.py] New listener starting for topic {topic}...')
+            listener_thread.start()
     app.run(host="0.0.0.0", debug=False, port=4999)
 

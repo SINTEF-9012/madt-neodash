@@ -28,40 +28,109 @@ const RealtimeDataChart = (props: ChartProps) => {
   };
  
   return (
-    <div style={{ marginTop: '0px', height: '100%', textAlign: 'center' }}>
-      <div style={{ marginTop: '20px' }}>
-        <h4>Select timeframe for data selection:</h4>
-        <div>
-          <label>Start: </label>
-          <input
-            type="datetime-local"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-          />
-        </div>
-        <div>
-          <label>End: </label>
-          <input
-            type="datetime-local"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-          />
-        </div>
+    <div
+      style={{
+        marginTop: '20px',
+        padding: '20px',
+        fontFamily: 'Arial, sans-serif',
+        maxWidth: '600px',
+        margin: 'auto',
+        borderRadius: '8px',
+        boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
+        backgroundColor: '#f9f9f9',
+        textAlign: 'center',
+      }}
+    >
+      <h4 style={{ fontSize: '22px', fontWeight: 'bold', color: '#333', marginBottom: '20px' }}>
+        Select timeframe:
+      </h4>
+  
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '15px',
+        }}
+      >
+        <label
+          style={{
+            fontSize: '16px',
+            fontWeight: 'bold',
+            color: '#555',
+            marginRight: '10px',
+          }}
+        >
+          Start:
+        </label>
+        <input
+          type="datetime-local"
+          value={startDate}
+          onChange={(e) => setStartDate(e.target.value)}
+          style={{
+            fontSize: '14px',
+            padding: '8px',
+            border: '1px solid #ccc',
+            borderRadius: '4px',
+            width: '70%',
+          }}
+        />
       </div>
-
-      <button 
-        style={{ 
-          padding: '15px 25px', 
-          fontSize: '20px', 
+  
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '20px',
+        }}
+      >
+        <label
+          style={{
+            fontSize: '16px',
+            fontWeight: 'bold',
+            color: '#555',
+            marginRight: '10px',
+          }}
+        >
+          End:
+        </label>
+        <input
+          type="datetime-local"
+          value={endDate}
+          onChange={(e) => setEndDate(e.target.value)}
+          style={{
+            fontSize: '14px',
+            padding: '8px',
+            border: '1px solid #ccc',
+            borderRadius: '4px',
+            width: '70%',
+          }}
+        />
+      </div>
+  
+      <button
+        style={{
+          padding: '12px 30px',
+          fontSize: '18px',
+          fontWeight: 'bold',
+          color: '#fff',
+          backgroundColor: '#007BFF',
+          border: 'none',
+          borderRadius: '4px',
           cursor: 'pointer',
-          marginTop: '20px'
-        }} 
+          transition: 'background-color 0.3s',
+          marginTop: '10px',
+        }}
         onClick={downloadData}
+        onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#0056b3')}
+        onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#007BFF')}
       >
         Download
       </button>
     </div>
   );
+  
 };
 
 export default RealtimeDataChart;
