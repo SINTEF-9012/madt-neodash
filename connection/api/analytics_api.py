@@ -30,19 +30,24 @@ def apply_cors(response):
 def analytics_generate_code():
     task = request.args.get('task')
     url = request.args.get('url')
-    # Download the file:
-    local_filename, headers = urllib.request.urlretrieve(url)
-    print("[analytics_api.py] The temporary file path is:", local_filename)
-    mime = magic.Magic(mime=True)
-    file_type = mime.from_file(local_filename)
-    print("[analytics_api.py] The file format is:", file_type)
-    # Move the file to new directory (otherwise might not be available outside function)
-    download_dir = "./temp"
-    if not os.path.exists(download_dir):
-        os.makedirs(download_dir)
-    final_path = os.path.join(download_dir, os.path.basename(local_filename))
-    shutil.move(local_filename, final_path)
-    print("[analytics_api.py] Moved file to:", final_path)
+    # Static (has URL provided for download) vs Realtime (assumes always CSV format):
+    if url:
+        # Download the file:
+        local_filename, headers = urllib.request.urlretrieve(url)
+        print("[analytics_api.py] The temporary file path is:", local_filename)
+        mime = magic.Magic(mime=True)
+        file_type = mime.from_file(local_filename)
+        print("[analytics_api.py] The file format is:", file_type)
+        # Move the file to new directory (otherwise might not be available outside function)
+        download_dir = "./temp"
+        if not os.path.exists(download_dir):
+            os.makedirs(download_dir)
+        final_path = os.path.join(download_dir, os.path.basename(local_filename))
+        shutil.move(local_filename, final_path)
+        print("[analytics_api.py] Moved file to:", final_path)
+    else:
+        file_type = "CSV"
+        final_path = "outputs/influxdb_outputs.csv"
     # Wrap LLM prompt with info about the type of file it's supposed to analyze:
     wrapped_task = wrap(task, file_type = file_type, file_path = final_path)
     # Generate code:
