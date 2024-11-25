@@ -23,35 +23,67 @@ const AnalyticsChart = (props: ChartProps) => {
   // Once "Solve" button is clicked on by user, perform:
   const handleSubmit = async () => {
     try {
-      // Store task in Neo4J:
-      const updateTaskResponse = await axios.post('http://localhost:5001/neo4j_update_task', {
-        endpoint: endpoint,
-        node_name: node_name,
-        task: inputText
+      // Check what kind of node is being WorkedOn by Analytics node:
+      const parent_type =  await axios.get('http://localhost:5001/neo4j_get_parent_type', {
+        params: { endpoint: endpoint, node_name: node_name }
       });
-      // If the task update is successful, call the analytics API to generate code:
-      if (updateTaskResponse.status === 200) {
-        const urlResponse = await axios.get(`http://localhost:5000/minio_get_last_url`, {
-          params: { endpoint: endpoint }
+      if (parent_type.data[0] === "staticdata") {
+        // Static Data Analysis - Analyses the last uploaded static file
+        // Store task in Neo4J:
+        const updateTaskResponse = await axios.post('http://localhost:5001/neo4j_update_task', {
+          endpoint: endpoint,
+          node_name: node_name,
+          task: inputText
         });
-        const url = urlResponse.data.url;
-        console.log('[AnalyticsChart.tsx] Fetched URL (for download):', url);
-        const codeResponse = await axios.get(`http://localhost:5002/analytics_generate_code`, {
-          params: { task: inputText, url: url }
-        });
-        const generatedCode = codeResponse.data.code;
-        const generatedLib = codeResponse.data.lib;
-        console.log('[AnalyticsChart.tsx] Running generated code ...');
-        const runResponse = await axios.get(`http://localhost:5002/analytics_run_code`, {params: {code: generatedCode, lib: generatedLib}});
-        // Save in local (card) variable:
-        setResultText(runResponse.data.response);
-        // Store the result from running code in Neo4J:
-        const updateResultResponse = await axios.post('http://localhost:5001/neo4j_update_result', {node_name: node_name, result: runResponse.data.response, endpoint: endpoint});
-        console.log('[AnalyticsChart.tsx] Status for updating result:', updateResultResponse.status);
+
+        // If the task update is successful, call the analytics API to generate code:
+        if (updateTaskResponse.status === 200) {
+          const urlResponse = await axios.get(`http://localhost:5000/minio_get_last_url`, {
+            params: { endpoint: endpoint }
+          });
+          const url = urlResponse.data.url;
+          console.log('[AnalyticsChart.tsx] Fetched URL (for download):', url);
+          const codeResponse = await axios.get(`http://localhost:5002/analytics_generate_code`, {
+            params: { task: inputText, url: url }
+          });
+          const generatedCode = codeResponse.data.code;
+          const generatedLib = codeResponse.data.lib;
+          console.log('[AnalyticsChart.tsx] Running generated code ...');
+          const runResponse = await axios.get(`http://localhost:5002/analytics_run_code`, {params: {code: generatedCode, lib: generatedLib}});
+          // Save in local (card) variable:
+          setResultText(runResponse.data.response);
+          // Store the result from running code in Neo4J:
+          const updateResultResponse = await axios.post('http://localhost:5001/neo4j_update_result', {node_name: node_name, result: runResponse.data.response, endpoint: endpoint});
+          console.log('[AnalyticsChart.tsx] Status for updating result:', updateResultResponse.status);
+        } else {
+          // Handle unsuccessful task update response
+          console.error('Failed to update task:', updateTaskResponse.status);
+          alert('Failed to update task in Neo4J.');
+        }
       } else {
-        // Handle unsuccessful task update response
-        console.error('Failed to update task:', updateTaskResponse.status);
-        alert('Failed to update task in Neo4J.');
+        // Realtime Data Analysis - Analyses the latest downloaded real-time file
+        // Store task in Neo4J:
+        const updateTaskResponse = await axios.post('http://localhost:5001/neo4j_update_task', {
+          endpoint: endpoint,
+          node_name: node_name,
+          task: inputText
+        });
+         // If the task update is successful, call the analytics API to generate code:
+        if (updateTaskResponse.status === 200) {
+          const url = null;
+          const codeResponse = await axios.get(`http://localhost:5002/analytics_generate_code`, {
+            params: { task: inputText, url: url }
+          });
+          const generatedCode = codeResponse.data.code;
+          const generatedLib = codeResponse.data.lib;
+          console.log('[AnalyticsChart.tsx] Running generated code ...');
+          const runResponse = await axios.get(`http://localhost:5002/analytics_run_code`, {params: {code: generatedCode, lib: generatedLib}});
+          // Save in local (card) variable:
+          setResultText(runResponse.data.response);
+          // Store the result from running code in Neo4J:
+          const updateResultResponse = await axios.post('http://localhost:5001/neo4j_update_result', {node_name: node_name, result: runResponse.data.response, endpoint: endpoint});
+          console.log('[AnalyticsChart.tsx] Status for updating result:', updateResultResponse.status);
+        }
       }
     } catch (error) {
       console.error('Failed in processing task:', error);

@@ -111,6 +111,21 @@ def neo4j_get_task():
         result = session.run("MATCH (n:ANALYTICS) WHERE n.endpoint = $endpoint "
                              "RETURN n", endpoint=endpoint)
         return jsonify([record["n"].get("task") for record in result])
+    
+@app.route('/neo4j_get_parent_type', methods=['GET'])
+def neo4j_get_parent_type():
+    endpoint = request.args.get('endpoint')
+    node_name = request.args.get('node_name')
+    print("[neo4j_api.py] Received request to get parent node type of Analytics node with endpoint:", endpoint)
+    with driver.session() as session:
+        result = session.run(
+            """
+            MATCH (n:ANALYTICS {endpoint: $endpoint, name: $node_name})-[:WorksOn]->(target)
+            RETURN target
+            """,
+            endpoint=endpoint, node_name=node_name
+        )
+        return jsonify([record["target"].get("name") for record in result])
      
 # - - - - -  - - - - -   - - - - -  Add more customized functions here: - - - - -   - - - - -   - - - - - 
 @app.route('/neo4j_get_data', methods=['GET'])
