@@ -55,6 +55,27 @@ services:
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
 
+  llm:
+    image: ollama/ollama
+    container_name: llm
+    networks:
+      - sindit_network
+    ports:
+      - 11434:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+    tty: true
+    volumes: 
+      - ollama:/root/.ollama
+    restart: unless-stopped
+    profiles: [local]
+
 
 volumes:
   sindit-minio-s3-volume:
@@ -64,3 +85,4 @@ volumes:
   sindit-influx-db-data-volume:
   sindit-influx-db-config-volume:
   sindit-kafka-data-volume:
+  ollama:

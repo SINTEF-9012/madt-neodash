@@ -43,17 +43,14 @@ const AnalyticsChart = (props: ChartProps) => {
           });
           const url = urlResponse.data.url;
           console.log('[AnalyticsChart.tsx] Fetched URL (for download):', url);
-          const codeResponse = await axios.get(`http://localhost:5002/analytics_generate_code`, {
+          const codeResponse = await axios.get(`http://localhost:5002/analytics_generate_and_run_code`, {
             params: { task: inputText, url: url }
           });
           const generatedCode = codeResponse.data.code;
-          const generatedLib = codeResponse.data.lib;
-          console.log('[AnalyticsChart.tsx] Running generated code ...');
-          const runResponse = await axios.get(`http://localhost:5002/analytics_run_code`, {params: {code: generatedCode, lib: generatedLib}});
-          // Save in local (card) variable:
-          setResultText(runResponse.data.response);
+          const executationResult = codeResponse.data.result;
+          setResultText(codeResponse.data.result);
           // Store the result from running code in Neo4J:
-          const updateResultResponse = await axios.post('http://localhost:5001/neo4j_update_result', {node_name: node_name, result: runResponse.data.response, endpoint: endpoint});
+          const updateResultResponse = await axios.post('http://localhost:5001/neo4j_update_result', {node_name: node_name, result: codeResponse.data.result, endpoint: endpoint});
           console.log('[AnalyticsChart.tsx] Status for updating result:', updateResultResponse.status);
         } else {
           // Handle unsuccessful task update response
@@ -71,17 +68,14 @@ const AnalyticsChart = (props: ChartProps) => {
          // If the task update is successful, call the analytics API to generate code:
         if (updateTaskResponse.status === 200) {
           const url = null;
-          const codeResponse = await axios.get(`http://localhost:5002/analytics_generate_code`, {
+          const codeResponse = await axios.get(`http://localhost:5002/analytics_generate_and_run_code`, {
             params: { task: inputText, url: url }
           });
           const generatedCode = codeResponse.data.code;
-          const generatedLib = codeResponse.data.lib;
-          console.log('[AnalyticsChart.tsx] Running generated code ...');
-          const runResponse = await axios.get(`http://localhost:5002/analytics_run_code`, {params: {code: generatedCode, lib: generatedLib}});
-          // Save in local (card) variable:
-          setResultText(runResponse.data.response);
+          const executationResult = codeResponse.data.result;
+          setResultText(codeResponse.data.result);
           // Store the result from running code in Neo4J:
-          const updateResultResponse = await axios.post('http://localhost:5001/neo4j_update_result', {node_name: node_name, result: runResponse.data.response, endpoint: endpoint});
+          const updateResultResponse = await axios.post('http://localhost:5001/neo4j_update_result', {node_name: node_name, result: codeResponse.data.result, endpoint: endpoint});
           console.log('[AnalyticsChart.tsx] Status for updating result:', updateResultResponse.status);
         }
       }

@@ -16,3 +16,4 @@ matplotlib
 numpy
 python-magic
 kafka-python
+autogen-agentchat==0.2.38
