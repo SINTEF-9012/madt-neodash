@@ -56,7 +56,7 @@ def influxdb_download_data():
     result = query_api.query(org=config_influxdb.get("influxdb", "INFLUXDB_ORG"), query=query)
 
     # Define the CSV file path
-    file_path = './outputs'
+    file_path = './downloads'
 
     if not os.path.exists(file_path):
         os.makedirs(file_path)
