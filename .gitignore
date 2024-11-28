@@ -57,3 +57,4 @@ connection/api/outputs
 downloads/
 outputs/
 temp/
+.cache/

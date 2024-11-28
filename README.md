@@ -39,6 +39,18 @@ Launch databases in docker:
 ```
 docker compose up
 ```
+Alternatively, if you need ollama service:
+
+```
+docker compose --profile local up 
+```
+
+Followed by pulling the preferred ollama model (in a different terminal):
+
+```
+docker exec -it llm bash
+ollama pull gemma2
+```
 
 Run in another terminal:
 
@@ -49,7 +61,7 @@ yarn run dev
 To run services, navigate to the `connection/api` and run: 
 
 ```
-docker run -p 4999:4999 -p 5000:5000 -p 5001:5001 -p 5002:5002 -p 5003:5003 -v ${PWD}/temp:/usr/api/temp -v ${PWD}/outputs:/usr/api/outputs -v ${PWD}/downloads:/usr/api/downloads --network=sindit_network -it api
+docker run -p 4999:4999 -p 5000:5000 -p 5001:5001 -p 5002:5002 -p 5003:5003 -v ${PWD}/temp:/usr/api/temp -v ${PWD}/downloads:/usr/api/downloads --network=sindit_network -it api
 ```
 
 For integration purposes, topology topic in connection/api/kafka_config must be updated with correct UC ID. 
