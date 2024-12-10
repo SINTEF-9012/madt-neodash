@@ -97,6 +97,20 @@ def influxdb_download_data():
     print("[influxdb_api.py] InfluxDB query request processed for asset with id " + bucket_id)
     return jsonify(output)
 
+@app.route('/influxdb_create_bucket', methods=['GET'])
+def influxdb_create_bucket():
+    # Get the Buckets API
+    bucket_id = request.args.get('bucket_id')
+    print("[influxdb_api.py] InfluxDB requested to add bucket with ID " + bucket_id)
+    buckets_api = client.buckets_api()
+    retention_rules = []  # Define retention rules, default: indefinitely
+    bucket = buckets_api.create_bucket(bucket_name=bucket_id, org_id=config_influxdb.get('influxdb','INFLUXDB_ORG'), retention_rules=retention_rules)
+    # Close the client
+    client.close()
+    print(f"[influxdb_api.py] Bucket {bucket.name} created with ID: {bucket.id}")
+    return jsonify({'status': 200})
+    
+
 def dynamic_data_parser(data, point, parent_key=''):
     for key, value in data.items():
         compound_key = f"{parent_key}.{key}" if parent_key else key  # Create a compound key for nested data

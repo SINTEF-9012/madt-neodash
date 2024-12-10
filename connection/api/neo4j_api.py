@@ -135,6 +135,17 @@ def neo4j_get_data():
         result = session.run(query)
         result_data = [record.data() for record in result]
         return jsonify(result_data)
+
+@app.route('/neo4j_run_query', methods=['POST'])
+def neo4j_run_query():
+    data = request.json
+    query = data['query']
+    print("[neo4j_api.py] Received query to execute in Neo4J:", query)
+    with driver.session() as session:
+        session_result = session.run(query)
+        # We are assuming that the query returns something to jsonify
+        results = [record.data() for record in session_result]
+        return jsonify(results)
     
 @app.route('/api/neo4j_get_graph', methods=['GET'])
 def neo4j_get_graph():

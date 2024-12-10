@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-from minio_access import download_last_object, get_url_last_object, list_objects, upload_object
+from minio_access import download_last_object, get_url_last_object, list_objects, upload_object, create_bucket, get_object, print_info_object
 import os
 
 
@@ -73,6 +73,31 @@ def minio_list_objects():
     object_list = [object.object_name for object in object_list]
     print(object_list)
     return jsonify({'objects': object_list})
+
+@app.route('/minio_create_bucket', methods=['GET'])
+def minio_create_bucket():
+    bucket_name = request.args.get('bucket_name')  
+    create_bucket(bucket_name=bucket_name)
+    print("[minio_api.py] Bucket "+ bucket_name + " created.")
+    return jsonify({'status': 200})
+
+@app.route('/minio_get_object', methods=['GET'])
+def minio_get_object():
+    bucket_name = request.args.get('bucket_name')
+    object_name = request.args.get('object_name') 
+    prefix = request.args.get('prefix') 
+    object_response = get_object(bucket_name=bucket_name, object_name = object_name, prefix=prefix)
+    print("[minio_api.py] Object returned.")
+    return jsonify({'object': object_response})
+
+@app.route('/minio_info_object', methods=['GET'])
+def minio_info_object():
+    bucket_name = request.args.get('bucket_name')
+    object_name = request.args.get('object_name') 
+    prefix = request.args.get('prefix') 
+    info_object = print_info_object(bucket_name=bucket_name, object_name = object_name, prefix=prefix)
+    print("[minio_api.py] Object info acquired: "+info_object)
+    return jsonify({'info': info_object})
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000)
