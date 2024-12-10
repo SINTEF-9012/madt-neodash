@@ -10,6 +10,7 @@ import os
 import urllib.request
 import magic
 import shutil
+import time
 
 config = configparser.ConfigParser(allow_no_value = True)
 config.read('openaiapi.ini')
@@ -45,6 +46,8 @@ def apply_cors(response):
 
 @app.route('/analytics_generate_and_run_code', methods=['GET'])
 def analytics_generate_and_run_code():
+    # Start the timer
+    start_time = time.time()
     task = request.args.get('task')
     url = request.args.get('url')
     # Static (has URL provided for download) vs Realtime (assumes always CSV format):
@@ -149,6 +152,9 @@ def analytics_generate_and_run_code():
         elif message['name'] == "CodeExecutor":
             result = message['content'].split("Code output:")[1].strip().replace('\n', '')
     response_content = {'code': code, 'result': result}
+    # Calculate the elapsed time
+    elapsed_time = time.time() - start_time
+    print(f"[analytics_api.py] Analysis complete. The code generation and code execution took {elapsed_time} seconds.")
     # Return the output as JSON:
     return jsonify(response_content)  
 
