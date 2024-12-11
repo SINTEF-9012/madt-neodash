@@ -152,15 +152,14 @@ def neo4j_get_graph():
     # API wrap for function obtaining current graph in Neo4J
     data = neo4j_graph()
     return jsonify(data)
-    
+
+
 def neo4j_graph():
-    # Query to match all nodes and relationships
     query = """
     MATCH (n)-[r]->(m)
     RETURN n, r, m
     """
     try:
-        # Get query result and send to topic:
         with driver.session() as session:
             results = session.run(query)
             new_graph_data = []
@@ -168,14 +167,38 @@ def neo4j_graph():
                 node1 = record["n"]
                 rel = record["r"]
                 node2 = record["m"]
+                # Adjusted to include relationship details as specified
                 new_graph_data.append({
-                    "node1": {"id": node1.element_id, "properties": dict(node1)},
-                    "relationship": {"type": rel.type, "properties": dict(rel)},
-                    "node2": {"id": node2.element_id, "properties": dict(node2)},
+                    "n": {
+                        "identity": node1.id,
+                        "labels": list(node1.labels),
+                        "properties": dict(node1),
+                        "elementId": str(node1.id)
+                    },
+                    "r": {
+                        "identity": rel.id,
+                        "start": rel.start_node.id,
+                        "end": rel.end_node.id,
+                        "type": rel.type,
+                        "properties": dict(rel),
+                        "elementId": str(rel.id),
+                        "startNodeElementId": str(rel.start_node.id),
+                        "endNodeElementId": str(rel.end_node.id)
+                    },
+                    "m": {
+                        "identity": node2.id,
+                        "labels": list(node2.labels),
+                        "properties": dict(node2),
+                        "elementId": str(node2.id)
+                    },
                 })
             return new_graph_data
     except Exception as e:
+        print(f"An error occurred: {e}")
         return []
+    finally:
+        driver.close()
+
     
 def neo4j_listen_for_changes(topic):
     global graph_data
@@ -197,7 +220,7 @@ def neo4j_listen_for_changes(topic):
         producer.flush()
         producer.close()
     # Checks updates indefinitely
-    time.sleep(10) # Check each 10 sec for updates
+    time.sleep(3600) # Check each hour for updates
     neo4j_listen_for_changes(topic)
 
 

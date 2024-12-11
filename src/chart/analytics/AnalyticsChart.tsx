@@ -22,6 +22,7 @@ const AnalyticsChart = (props: ChartProps) => {
 
   // Once "Solve" button is clicked on by user, perform:
   const handleSubmit = async () => {
+    const startTime = new Date(); // Start timer
     try {
       // Check what kind of node is being WorkedOn by Analytics node:
       const parent_type =  await axios.get('http://localhost:5001/neo4j_get_parent_type', {
@@ -82,6 +83,10 @@ const AnalyticsChart = (props: ChartProps) => {
     } catch (error) {
       console.error('Failed in processing task:', error);
       alert('Failed to process task.');
+    }  finally {
+      const endTime = new Date(); // End timer
+      const duration = (endTime.getTime() - startTime.getTime()) / 1000; // Calculate duration in seconds
+      console.log(`[AnalyticsChart.tsx] handleSubmit execution time: ${duration} seconds`);
     }
   };
 

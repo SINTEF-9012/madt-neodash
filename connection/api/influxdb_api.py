@@ -9,6 +9,7 @@ import json
 from kafka import KafkaConsumer, OffsetAndMetadata, TopicPartition
 from threading import Thread
 import configparser
+import time
 
 # Load configurations from .ini files
 config_kafka = configparser.ConfigParser()
@@ -159,19 +160,20 @@ def influxdb_realtime_upload(topic, uid):
     #last_offset = consumer.position(TopicPartition(topic, 0)) - 1  # REALTIME --> Comment out this part
     #if last_offset >= 0:                                           # REALTIME --> Comment out this part
     #    consumer.seek(TopicPartition(topic, 0), last_offset)       # REALTIME --> Comment out this part
+    # ...
+    #else:
+    #    print(f'No messages found in topic {topic}.')  # REALTIME --> Comment out this part
     try:
         for message in consumer:
-            print(f'[influxdb_api.py] Uploading new message to bucket {uid} ...')
-            print(f'Received message: {message.value}')
+            # print(f'[influxdb_api.py] Uploading new message to bucket {uid} ...')
+            # print(f'Received message: {message.value}')
             influxdb_upload_message(message.value, uid, topic)
     except Exception as e:
         print(f'[influxdb_api.py] Error encountered for realtime upload to bucket {uid}. Error: {e}')
     finally:
         consumer.close()
         print(f'[influxdb_api.py] Consumer closed for topic {topic}.')
-    #else:
-    #    print(f'No messages found in topic {topic}.')  # REALTIME --> Comment out this part
-    #    consumer.close()                               # REALTIME --> Comment out this part
+
 
 
 if __name__ == '__main__':
