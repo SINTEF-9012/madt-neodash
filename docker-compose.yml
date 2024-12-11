@@ -57,7 +57,7 @@ services:
 
   llm:
     image: ollama/ollama
-    container_name: llm
+    container_name: madt4bc-ollama
     networks:
       - sindit_network
     ports:

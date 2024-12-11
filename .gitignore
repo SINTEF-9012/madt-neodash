@@ -1,5 +1,6 @@
 *.credential
 kafka_config.ini
+kafka_config_seed.ini
 openaiapi.ini
 .idea
 *.iml

@@ -112,6 +112,15 @@ spec:
         - name: madt4bc-db
           mountPath: data
           subPath: "minio-db"
+      - name: llm
+        image: ollama/ollama
+        ports: ## Ports to map
+        - containerPort: 11434
+          name: http
+        volumeMounts:
+        - name: madt4bc-db
+          mountPath: /root/.ollama
+          subPath: "ollama"
 
       volumes:
       - name: madt4bc-db

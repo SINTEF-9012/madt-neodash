@@ -30,4 +30,7 @@ spec:
           name: http-minio
         - containerPort: 5001
           name: http-neo4j
+        envFrom:
+          - secretRef:
+            name: madt4bc-secret
       

@@ -23,8 +23,8 @@ openai_llm_config = {
 
 ollama_llm_config = {"config_list": [
   {
-    "model": "gemma2",
-    "base_url": "http://llm:11434/v1",
+    "model": "gemma2:2b",
+    "base_url": "http://madt4bc-ollama:11434/v1",
     "api_key": "ollama",
   },
 ] }
