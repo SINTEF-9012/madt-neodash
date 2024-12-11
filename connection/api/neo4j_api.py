@@ -170,26 +170,26 @@ def neo4j_graph():
                 # Adjusted to include relationship details as specified
                 new_graph_data.append({
                     "n": {
-                        "identity": node1.id,
+                        "identity": int(node1.element_id),
                         "labels": list(node1.labels),
                         "properties": dict(node1),
-                        "elementId": str(node1.id)
+                        "elementId": str(node1.element_id)
                     },
                     "r": {
-                        "identity": rel.id,
-                        "start": rel.start_node.id,
-                        "end": rel.end_node.id,
+                        "identity": int(rel.element_id),
+                        "start": int(rel.start_node.element_id),
+                        "end": int(rel.end_node.element_id),
                         "type": rel.type,
                         "properties": dict(rel),
-                        "elementId": str(rel.id),
-                        "startNodeElementId": str(rel.start_node.id),
-                        "endNodeElementId": str(rel.end_node.id)
+                        "elementId": str(rel.element_id),
+                        "startNodeElementId": str(rel.start_node.element_id),
+                        "endNodeElementId": str(rel.end_node.element_id)
                     },
                     "m": {
-                        "identity": node2.id,
+                        "identity": node2.element_id,
                         "labels": list(node2.labels),
                         "properties": dict(node2),
-                        "elementId": str(node2.id)
+                        "elementId": str(node2.element_id)
                     },
                 })
             return new_graph_data
