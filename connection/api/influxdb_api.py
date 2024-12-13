@@ -110,6 +110,14 @@ def influxdb_create_bucket():
     client.close()
     print(f"[influxdb_api.py] Bucket {bucket.name} created with ID: {bucket.id}")
     return jsonify({'status': 200})
+
+def check_and_create_bucket(bucket_id):
+    buckets_api = client.buckets_api()
+    bucket_list = buckets_api.find_buckets().buckets
+    bucket_names = [bucket.name for bucket in bucket_list]
+    if bucket_id not in bucket_names:
+        print(f"[influxdb_api.py] Bucket {bucket_id} not found, creating new bucket.")
+        buckets_api.create_bucket(bucket_name=bucket_id, org_id=config_influxdb.get('influxdb', 'INFLUXDB_ORG'))
     
 
 def dynamic_data_parser(data, point, parent_key=''):
@@ -133,6 +141,7 @@ def dynamic_data_parser(data, point, parent_key=''):
                 point.field(compound_key, value)
 
 def influxdb_upload_message(message, uid, topic):
+    check_and_create_bucket(uid)
     data_dict = json.loads(message)
     point = Point(topic)
     dynamic_data_parser(data_dict, point)
