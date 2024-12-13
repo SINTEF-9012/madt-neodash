@@ -9,7 +9,7 @@ COPY ./requirements.txt ./requirements.txt
 RUN pip3 install -r requirements.txt
 
 # Copy all files to the working directory in the container
-COPY ./* ./
+COPY . .
 
 # Convert line endings for run.sh and all .py files to Unix format
 RUN sed -i 's/\r$//' run_api.sh && \
@@ -23,6 +23,7 @@ EXPOSE 5000
 EXPOSE 5001
 EXPOSE 5002
 EXPOSE 5003
+EXPOSE 5004
 
 # Give execute permission to run.sh
 RUN chmod +x run_api.sh

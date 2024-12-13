@@ -12,18 +12,18 @@ import magic
 import shutil
 
 config = configparser.ConfigParser(allow_no_value = True)
-config.read('openaiapi.ini')
-openai_api_key = config.get('openai', 'OPENAI_API_KEY')
+# config.read('openaiapi.ini')
+# openai_api_key = config.get('openai', 'OPENAI_API_KEY')
 
-openai_llm_config = {
-    "config_list": [{"model": "gpt-4o-mini", "api_key": openai_api_key, "api_rate_limit": 10.0, "tags": ["gpt4omini", "openai"]}],
-    "temperature": 0.1,
-    "max_tokens": 2500
-}
+# openai_llm_config = {
+#     "config_list": [{"model": "gpt-4o-mini", "api_key": openai_api_key, "api_rate_limit": 10.0, "tags": ["gpt4omini", "openai"]}],
+#     "temperature": 0.1,
+#     "max_tokens": 2500
+# }
 
 ollama_llm_config = {"config_list": [
   {
-    "model": "gemma2:2b",
+    "model": "gemma2",
     "base_url": "http://madt4bc-ollama:11434/v1",
     "api_key": "ollama",
   },

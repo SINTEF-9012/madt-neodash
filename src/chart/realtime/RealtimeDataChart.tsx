@@ -2,6 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { ChartProps } from '../Chart';
 import axios from 'axios';
 
+// const INFLUX_API_ENDPOINT = 'http://localhost:5001'
+const INFLUX_API_ENDPOINT = 'https://madt4bc.dynabic.dev/influx-api'
+
 const RealtimeDataChart = (props: ChartProps) => {
   const { records } = props;
   const node = records && records[0] && records[0]._fields && records[0]._fields[0] ? records[0]._fields[0] : {};
@@ -13,7 +16,7 @@ const RealtimeDataChart = (props: ChartProps) => {
   // Function to retrieve data within time frame, activated by clicking "Donwload"
   const downloadData = async () => {
     try {
-      const response = await axios.get('http://localhost:4999/influxdb_download_data', {
+      const response = await axios.get(INFLUX_API_ENDPOINT+'/influxdb_download_data', {
         params: {
           endpoint: endpoint,
           start: startDate,

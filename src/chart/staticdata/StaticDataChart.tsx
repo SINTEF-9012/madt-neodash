@@ -19,7 +19,8 @@ const StaticDataChart = (props: ChartProps) => {
 
   const fetchUrl = () => {
     // Existing code to fetch the URL
-    const httpString = 'http://localhost:5000/minio_get_last_url?endpoint=' + endpoint;
+    // const httpString = 'http://localhost:5000/minio_get_last_url?endpoint=' + endpoint;
+    const httpString = 'https://madt4bc.dynabic.dev/minio-api/minio_get_last_url?endpoint=' + endpoint;
     axios.get(httpString)
       .then((response) => {
         const apiUrl = response.data.url;
@@ -32,7 +33,8 @@ const StaticDataChart = (props: ChartProps) => {
 
   const handleDownload = () => {
     // Trigger the download function in `minio_api.py`
-    const httpStringDownload = `http://localhost:5000/minio_local_download?endpoint=${endpoint}`;
+    // const httpStringDownload = `http://localhost:5000/minio_local_download?endpoint=${endpoint}`;
+    const httpStringDownload = `https://madt4bc.dynabic.dev/minio-api/minio_local_download?endpoint=${endpoint}`;
     axios.get(httpStringDownload)
       .then((response) => {
         if (response.data.status === 200) {
@@ -57,7 +59,8 @@ const StaticDataChart = (props: ChartProps) => {
       try {
         // Update the URL in the Neo4J graph
         if (url) {
-          await axios.post('http://localhost:5001/neo4j_update_url', {
+          // await axios.post('http://localhost:5001/neo4j_update_url', {
+          await axios.post('https://madt4bc.dynabic.dev/neo4j-api/neo4j_update_url', {
             node_name : node_name,
             endpoint: endpoint, 
             url: url
@@ -87,7 +90,9 @@ const StaticDataChart = (props: ChartProps) => {
     formData.append('asset_id', endpoint);
 
     try {
-      const response = await axios.post('http://localhost:5000/minio_upload_file', formData, {
+      // const response = await axios.post('http://localhost:5000/minio_upload_file', formData, {
+      const response = await axios.post('https://madt4bc.dynabic.dev/minio-api/minio_upload_file', formData, {
+      
         headers: {
           'Content-Type': 'multipart/form-data',
         },

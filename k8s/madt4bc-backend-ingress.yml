@@ -41,4 +41,18 @@ spec:
                 name: madt4bc-backend
                 port:
                   number: 5001
+          - path: /analytics-api(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: madt4bc-backend
+                port:
+                  number: 5002
+          - path: /download-api(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: madt4bc-backend
+                port:
+                  number: 5004
     
