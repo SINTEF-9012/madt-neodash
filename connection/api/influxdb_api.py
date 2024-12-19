@@ -94,7 +94,7 @@ def influxdb_download_data():
            })
 
     # Close the client
-    client.close()
+    # client.close()
     print("[influxdb_api.py] InfluxDB query request processed for asset with id " + bucket_id)
     return jsonify(output)
 
@@ -107,7 +107,7 @@ def influxdb_create_bucket():
     retention_rules = []  # Define retention rules, default: indefinitely
     bucket = buckets_api.create_bucket(bucket_name=bucket_id, org_id=config_influxdb.get('influxdb','INFLUXDB_ORG'), retention_rules=retention_rules)
     # Close the client
-    client.close()
+    # client.close()
     print(f"[influxdb_api.py] Bucket {bucket.name} created with ID: {bucket.id}")
     return jsonify({'status': 200})
 

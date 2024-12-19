@@ -55,4 +55,11 @@ spec:
                 name: madt4bc-backend
                 port:
                   number: 5004
+          - path: /statistics-api(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: madt4bc-backend
+                port:
+                  number: 5003
     

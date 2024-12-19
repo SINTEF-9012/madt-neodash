@@ -3,6 +3,15 @@ import { ChartProps } from '../Chart';
 import { generateCypher } from '../../openai/TextToCypher';
 import axios from 'axios'; // HTTP client
 
+
+// const NEO4J_API_ENDPOINT = 'http://localhost:5001'
+const NEO4J_API_ENDPOINT = 'https://madt4bc.dynabic.dev/neo4j-api'
+// const MINIO_API_ENDPOINT = 'http://localhost:5000'
+const MINIO_API_ENDPOINT = 'https://madt4bc.dynabic.dev/minio-api'
+// const ANALYTICS_API_ENDPOINT = 'http://localhost:5002'
+const ANALYTICS_API_ENDPOINT = 'https://madt4bc.dynabic.dev/analytics-api'
+// const STATISTICS_API_ENDPOINT = 'http://localhost:5003'
+const STATISTICS_API_ENDPOINT = 'https://madt4bc.dynabic.dev/statistics-api'
 /**
  * Renders Neo4j records as their JSON representation.
  */
@@ -47,12 +56,12 @@ const StatisticsChart = (props: ChartProps) => {
 
   const fetchStatistics = async () => {
     try {
-      const urlResponse = await axios.get(`http://localhost:5000/minio_get_last_url`, {
+      const urlResponse = await axios.get(MINIO_API_ENDPOINT+`/minio_get_last_url`, {
         params: { endpoint: endpoint }
       });
       const url = urlResponse.data.url;
       console.log('[StatisticsChart.tsx] Fetched URL:', url);
-      const statResponse = await axios.get(`http://localhost:5003/get_statistics`, {
+      const statResponse = await axios.get(STATISTICS_API_ENDPOINT+`/get_statistics`, {
         params: { url: url }
       });
       console.log(statResponse.data);
