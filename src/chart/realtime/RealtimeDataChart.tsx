@@ -13,7 +13,7 @@ const RealtimeDataChart = (props: ChartProps) => {
   // Function to retrieve data within time frame, activated by clicking "Donwload"
   const downloadData = async () => {
     try {
-      const response = await axios.get('http://localhost:4999/influxdb_download_data', {
+      const response = await axios.get('http://localhost:5000/influxdb_download_data', {
         params: {
           endpoint: endpoint,
           start: startDate,

@@ -1,3 +1,4 @@
+neo4j==5.25.0
 flask==3.0.0
 pip==23.3
 pyyaml==6.0.1
@@ -8,3 +9,5 @@ pandas
 numpy
 python-magic
 openai
+matplotlib
+autogen-agentchat==0.2.38

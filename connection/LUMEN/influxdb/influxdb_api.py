@@ -111,6 +111,8 @@ def influxdb_create_bucket():
     print(f"[influxdb_api.py] Bucket {bucket.name} created with ID: {bucket.id}")
     return jsonify({'status': 200})
 
+# UNCOMMENT FOR KAFKA INTEGRATION:
+'''
 def check_and_create_bucket(bucket_id):
     buckets_api = client.buckets_api()
     bucket_list = buckets_api.find_buckets().buckets
@@ -118,7 +120,6 @@ def check_and_create_bucket(bucket_id):
     if bucket_id not in bucket_names:
         print(f"[influxdb_api.py] Bucket {bucket_id} not found, creating new bucket.")
         buckets_api.create_bucket(bucket_name=bucket_id, org_id=config_influxdb.get('influxdb', 'INFLUXDB_ORG'))
-    
 
 def dynamic_data_parser(data, point, parent_key=''):
     for key, value in data.items():
@@ -151,7 +152,6 @@ def influxdb_upload_message(message, uid, topic):
     write_api.write(bucket=uid, record=point)
     write_api.close()
 
-
 def influxdb_realtime_upload(topic, uid):
     print(f'[influxdb_api.py] Listening on topic {topic} ...')
     consumer = KafkaConsumer( topic,
@@ -182,16 +182,16 @@ def influxdb_realtime_upload(topic, uid):
     finally:
         consumer.close()
         print(f'[influxdb_api.py] Consumer closed for topic {topic}.')
-
-
+'''
 
 if __name__ == '__main__':
-    # UNCOMMENT WHEN READY:
-    #topic_uid_dict = json.loads(config_kafka['kafka']['topic_mapping'])
-    #for topic, uid_list in topic_uid_dict.items():
+    # UNCOMMENT FOR KAFKA INTEGRATION:
+    # topic_uid_dict = json.loads(config_kafka['kafka']['topic_mapping'])
+    # for topic, uid_list in topic_uid_dict.items():
     #    for uid in uid_list:
     #        listener_thread = Thread(target=influxdb_realtime_upload, args=(topic,uid,))
     #        print(f'[influxdb_api.py] New listener starting for topic {topic}...')
     #        listener_thread.start()
     app.run(host="0.0.0.0", debug=False, port=4999)
+    
 

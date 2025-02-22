@@ -1,17 +1,48 @@
 from flask import Flask, request, jsonify
 from neo4j import GraphDatabase
-from kafka import KafkaProducer, KafkaConsumer
+# from kafka import KafkaProducer, KafkaConsumer
 from threading import Thread
 import configparser
 import json
 import time
+import os
+from openai import OpenAI
+from autogen import ConversableAgent, GroupChat, GroupChatManager, register_function
+from autogen.coding import LocalCommandLineCodeExecutor, DockerCommandLineCodeExecutor
+import tempfile
+import io
+import sys
+import urllib.request
+import magic
+import shutil
 
 # Load configurations from .ini files
-config_kafka = configparser.ConfigParser()
-config_kafka.read('kafka_config.ini')
+#config_kafka = configparser.ConfigParser()
+#config_kafka.read('kafka_config.ini')
 
 config_neo4j = configparser.ConfigParser()
 config_neo4j.read('neo4j_config.ini')
+
+config = configparser.ConfigParser(allow_no_value = True)
+config.read('openaiapi.ini')
+openai_api_key = config.get('openai', 'OPENAI_API_KEY')
+
+openai_llm_config = {
+    "config_list": [{"model": "gpt-4o-mini", "api_key": openai_api_key, "api_rate_limit": 10.0, "tags": ["gpt4omini", "openai"]}],
+    "temperature": 0.1,
+    "max_tokens": 2500
+}
+
+ollama_llm_config = {"config_list": [
+  {
+    "model": "gemma2",
+    "base_url": "http://llm:11434/v1",
+    "api_key": "ollama",
+  },
+] }
+
+# Decide if there is human interaction or not
+DEBUG_MODE = False
 
 # Global graph data
 graph_data = []
@@ -43,6 +74,29 @@ def neo4j_update_url():
         result = session.run("MATCH (n) WHERE n.name = $node_name AND n.endpoint = $endpoint "
                              "SET n.url = $url RETURN n",
                              node_name=node_name, endpoint=endpoint, url=url)
+        return jsonify([record["n"].get("url") for record in result])
+    
+@app.route('/neo4j_update_metadata', methods=['POST'])
+def neo4j_update_metadata():
+    data = request.json
+    # All metadata:
+    node_name = data['node_name']
+    bucket = data['bucket']
+    url = data['url']
+    add_date = data['add_date']
+    data_format = data['data_format']
+    data_type = data['data_type']
+    file_name = data['file_name']
+    print("[neo4j_api.py] Received request to update:", node_name, " from bucket ", bucket, " with metadata.")
+    print("[neo4j_api.py] URL: " + url)
+    print("[neo4j_api.py] add_date: " + add_date)
+    print("[neo4j_api.py] data_format: " + data_format)
+    print("[neo4j_api.py] data_type: " + data_type)
+    print("[neo4j_api.py] file_name: " + file_name)
+    with driver.session() as session:
+        result = session.run("MATCH (n) WHERE n.name = $node_name AND n.bucket = $bucket "
+                             "SET n.url = $url, n.add_date = $add_date, n.format = $data_format, n.type = $data_type, n.file_name = $file_name RETURN n",
+                             node_name=node_name, bucket=bucket, url=url, add_date=add_date, data_format=data_format, data_type=data_type, file_name=file_name)
         return jsonify([record["n"].get("url") for record in result])
     
 @app.route('/neo4j_update_task', methods=['POST'])
@@ -199,7 +253,8 @@ def neo4j_graph():
     finally:
         driver.close()
 
-    
+# UNCOMMENT FOR KAFKA INTEGRATION
+'''
 def neo4j_listen_for_changes(topic):
     global graph_data
     print(f'[neo4j_api.py] Checking for changes...')
@@ -222,6 +277,7 @@ def neo4j_listen_for_changes(topic):
     # Checks updates indefinitely
     time.sleep(3600) # Check each hour for updates
     neo4j_listen_for_changes(topic)
+'''
 
 @app.route('/neo4j_create_attack', methods=['POST'])
 def neo4j_create_attack():
@@ -274,10 +330,142 @@ def neo4j_create_threat():
     except Exception as e:
         return jsonify({"[neo4j_api.py] Encountered error when adding new Threat node:": str(e)}), 400
 
+#### ______________________________________LUMEN________________________________________####
+def query_neo4j(query:str)->str:
+    try:
+        records, summary, keys = driver.execute_query(query)
+        return repr(records)
+    except Exception as e:
+        return repr(e) 
+
+@app.route('/analytics_generate_and_run_code', methods=['GET'])
+def analytics_generate_and_run_code():
+    task = request.args.get('task')
+    llm_work_dir = "./downloads"
+    # Ask FileExplorer to locally download data: 
+
+    graph_operator = ConversableAgent(
+        "GraphOperator",
+        llm_config=False,  # Turn off LLM for this agent.
+        code_execution_config=False,
+        human_input_mode= "ALWAYS" if DEBUG_MODE else "NEVER",
+        is_termination_msg=lambda msg: (msg["content"]) and ("terminate" in msg["content"].lower())
+    )
+
+    graph_explorer = ConversableAgent(
+        "GraphExplorer",
+        system_message = "You can access a Neo4j Graph Database, and you can answer questions by querying the database. For this, generate Cypher queries and use a registered tool to execute the query and retrive the knowledge you need."
+        "The graph has the following schema:"
+        "An ASSET node has the properties: name, layer, ip, description and uid."
+        "A DATASOURCE node has properties: name, type, format, bucket, endpoint and uid, and is always the DataSourceOf an ASSET."
+        "A STATICDATA node has properties: name, type, file_name, add_date, format and uid, and is always the DataOf an ASSET."
+        "An ASSET can have the following relations to another ASSET: DistributesTo, ConnectTo, Manages, DataTo and Secures."
+        "Be careful about the direction of the relationships, i.e., DATASOURCE-[:DataSourceOf]->ASSET, and STATICDATA-[:DataOf]->[ASSET]",
+        llm_config = openai_llm_config,
+        code_execution_config=False,
+        human_input_mode= "ALWAYS" if DEBUG_MODE else "NEVER"
+    )
+
+    register_function(
+        query_neo4j,
+        caller = graph_explorer,
+        executor = graph_operator,
+        description = "Query or modify the neo4j graph database. The input is a cypher query, and the output is a list of records returned from the query."
+    )
+
+    nested_chats = [
+        {
+            "recipient": graph_explorer,
+            "max_turns": 4,
+            "summary_method": "last_msg"
+        }
+    ]
+
+    graph_operator.register_nested_chats(
+        nested_chats, 
+        trigger = lambda sender: sender not in [graph_explorer]
+    )
+
+    # Human proxy to initiate the chat:
+    human_proxy = ConversableAgent(
+        "HumanTask",
+        llm_config=False,  # no LLM used for human proxy
+        human_input_mode="ALWAYS",  # always ask for human input
+    )
+
+    code_generator = ConversableAgent("CodeGenerator",
+        llm_config=ollama_llm_config,
+        system_message = '''
+            You generate pure Python code, with no explanations. \
+            You will get a task, and a path to a file (of a specific type). \
+            Generate one function called solve_task(file_path) that tries to solve the entire or at least part of the task. \
+            At the end, include one line of code to call solve_task function. Do not use the __main__ segment! \
+            At the end, always print the result. \
+            Assume these dependencies/packages are already installed: numpy, scapy, pandas, matplotlib, dpkt.  \
+        ''',
+        code_execution_config=False,  
+        human_input_mode="NEVER",  
+        is_termination_msg=lambda msg: "terminate" in msg["content"].lower(),
+    )
+
+    # Create an evaluator:
+    output_evaluator = ConversableAgent("OutputEvaluator",
+        llm_config=ollama_llm_config,
+        system_message = '''
+            You evaluate code execution outputs. Given a task and an output, you decide whether the output answers the task.  \
+            If the output is valid, only return TERMINATE. If the output is an error or it does not make sense, explain the problem. 
+        ''',
+        code_execution_config=False, 
+        human_input_mode="NEVER",  
+    )
+
+    # Create a local command line code executor.
+    local_executor = LocalCommandLineCodeExecutor(
+    timeout=10,  # Timeout for each code execution in seconds.
+    work_dir=llm_work_dir,  
+    )
+
+    # Create an agent with code executor configuration.
+    code_executor = ConversableAgent("CodeExecutor",
+        llm_config=False, 
+        code_execution_config={"executor": local_executor}, 
+        human_input_mode="NEVER",  
+    )
+
+    code_generator.description = "Generates Python code given a task."
+    code_executor.description = "Executes generated Python code and prints the execution output."
+    output_evaluator.description = "Evaluates execution output and terminates if satisfied."
+
+    group_chat = GroupChat(agents=[code_generator, code_executor, output_evaluator], messages=[],)
+
+    group_chat_manager = GroupChatManager(
+        groupchat=group_chat,
+        llm_config=ollama_llm_config,
+        is_termination_msg=lambda msg: "terminate" in msg["content"].lower()
+    )
+
+    chat_result = human_proxy.initiate_chat(
+        group_chat_manager,
+        message=f" Task to solve: {task} Context: you have a file called {local_filename} of type {file_type} in the current directory. ",
+        summary_method="reflection_with_llm",
+    )
+
+    # Extract code and result:
+    code = ""
+    result = ""
+    for message in group_chat.messages:
+        if message['name'] == "CodeGenerator":
+            code = message["content"]
+        elif message['name'] == "CodeExecutor":
+            result = message['content'].split("Code output:")[1].strip().replace('\n', '')
+    response_content = {'code': code, 'result': result}
+    # Return the output as JSON:
+    return jsonify(response_content)  
+
 
 
 if __name__ == '__main__':
-    # UNCOMMENT WHEN READY:
+    # UNCOMMENT FOR KAFKA INTEGRATION:
     #topic = config_kafka.get('kafka', 'topic')
     #listener_thread = Thread(target=neo4j_listen_for_changes, args=(topic,))
     #print(f'[neo4j_api.py] Listener starting...')

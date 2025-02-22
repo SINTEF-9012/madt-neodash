@@ -12,31 +12,24 @@ const StaticDataChart = (props: ChartProps) => {
 
   const { records, settings, getGlobalParameter } = props;
   const node = records && records[0] && records[0]._fields && records[0]._fields[0] ? records[0]._fields[0] : {};
-  const [url, setUrl] = useState('');
-  const endpoint = node.properties['endpoint']; // Obs! Used as bucket name
+  const bucket = node.properties['bucket']; // Obs! Instead of endpoint
   const node_name = node.properties['name'];
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  // Properties to load to Neo4J:
+  //const [url, setUrl] = useState('');
+  //const [file_name, setFilename] = useState('');
+  //const [add_date, setAddDate] = useState('');
+  //const [data_format, setFormat] = useState('');
+  //const [data_type, setType] = useState('');
 
-  const fetchUrl = () => {
-    // Existing code to fetch the URL
-    const httpString = 'http://localhost:5000/minio_get_last_url?endpoint=' + endpoint;
-    axios.get(httpString)
-      .then((response) => {
-        const apiUrl = response.data.url;
-        setUrl(apiUrl);  // This will trigger the useEffect listening to `url`
-      })
-      .catch((error) => {
-        console.error('[StaticDataChart.tsx] Error fetching URL:', error);
-      });
-  };
 
   const handleDownload = () => {
     // Trigger the download function in `minio_api.py`
-    const httpStringDownload = `http://localhost:5000/minio_local_download?endpoint=${endpoint}`;
+    const httpStringDownload = `http://localhost:5000/minio_local_download?endpoint=${bucket}`;
     axios.get(httpStringDownload)
       .then((response) => {
         if (response.data.status === 200) {
-          console.log('[StaticDataChart.tsx] Download triggered successfully.');
+          console.log('[StaticDataChart.tsx] Download triggered.');
           // Add any additional success handling if needed
         } else {
           console.error('[StaticDataChart.tsx] Error triggering download:', response.data);
@@ -46,33 +39,6 @@ const StaticDataChart = (props: ChartProps) => {
         console.error('[StaticDataChart.tsx] Error triggering download:', error);
       });
   };
-
-  useEffect(() => {
-    // Fetch the URL when the component mounts
-    fetchUrl();
-  }, [endpoint]);
-
-  useEffect(() => {
-    const fetchAndUpdateUrl = async () => {
-      try {
-        // Update the URL in the Neo4J graph
-        if (url) {
-          await axios.post('http://localhost:5001/neo4j_update_url', {
-            node_name : node_name,
-            endpoint: endpoint, 
-            url: url
-          });
-          console.log('[StaticDataChart.tsx] Static node updated with URL:', url);
-        }
-      } catch (error) {
-        console.error('[StaticDataChart.tsx] Error in fetchAndUpdateUrl:', error);
-      }
-    };
-    // TODO: Change according to time expire date:
-    if (endpoint) {
-      fetchAndUpdateUrl();
-    }
-  }, [url, endpoint]); // Re-run when `endpoint` and 'url' changes
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
@@ -84,20 +50,46 @@ const StaticDataChart = (props: ChartProps) => {
     if (!selectedFile) return;
     const formData = new FormData();
     formData.append('file', selectedFile);
-    formData.append('asset_id', endpoint);
-
+    formData.append('asset_id', bucket);
+    // Upload file in MinIO
     try {
-      const response = await axios.post('http://localhost:5000/minio_upload_file', formData, {
+      const uploadResponse = await axios.post('http://localhost:5000/minio_upload_file', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
-      console.log('[DataSource.tsx] File upload returned following status:', response.data);
+      console.log('[StaticDataChart.tsx] HERE22');
+      console.log('[StaticDataChart.tsx] File upload returned following status:', uploadResponse.data.status);
+      // If upload is successful, fetch last object URL
+      if (uploadResponse.data.status === 200){
+        const httpString = 'http://localhost:5000/minio_get_last_url?endpoint=' + bucket;
+        const urlResponse = await axios.get(httpString);
+        console.log('[StaticDataChart.tsx] URL fetched:', urlResponse.data.url);
+        // If fetching URL is successful, update node with metadata
+        if (urlResponse.data.url){
+          // Update Neo4J - Currently type is same as format
+          const postData = {
+            node_name: node_name,   
+            bucket: bucket,     
+            url: urlResponse.data.url,
+            file_name: uploadResponse.data.file_name,
+            add_date: uploadResponse.data.add_date,
+            data_format: uploadResponse.data.format,
+            data_type: uploadResponse.data.format
+          };
+          const postUrl = 'http://localhost:5000/neo4j_update_metadata';
+          const updateResponse = await axios.post(postUrl, postData);
+          console.log('[StaticDataChart.tsx] Update status in Neo4j:', updateResponse.data.status);
+        } else {
+          console.error('[StaticDataChart.tsx] Error fetching URL.');
+        }
+      } else {
+        console.error('[StaticDataChart.tsx] Error uploading file.');
+      }
     } catch (error) {
-      console.error('[DataSource.tsx] Error uploading file:', error);
+      console.error('[StaticDataChart.tsx] Error uploading file:', error);
     }
   };
-
 
   return (
     <div
@@ -125,7 +117,7 @@ const StaticDataChart = (props: ChartProps) => {
       >
         <h3 style={{ margin: '10px 0', fontSize: '20px', color: '#333' }}>Upload</h3>
         <p style={{ margin: '5px 0', fontSize: '14px', color: '#555' }}>
-          Upload a file for static processing.
+          Upload a static file.
         </p>
         <div style={{ marginTop: '15px' }}>
           <input

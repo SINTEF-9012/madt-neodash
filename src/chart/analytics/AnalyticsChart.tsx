@@ -11,8 +11,6 @@ const AnalyticsChart = (props: ChartProps) => {
   //const { generated, setGenerated } = useState(0);
   const { records, settings, getGlobalParameter } = props;
   const node = records && records[0] && records[0]._fields && records[0]._fields[0] ? records[0]._fields[0] : {};
-  const endpoint = node.properties['endpoint']; // Obs! Used as bucket name
-  const node_name = node.properties['name'];
   const [inputText, setInputText] = useState('');
   const [resultText, setResultText] = useState('');
 
@@ -24,69 +22,20 @@ const AnalyticsChart = (props: ChartProps) => {
   const handleSubmit = async () => {
     const startTime = new Date(); // Start timer
     try {
-      // Check what kind of node is being WorkedOn by Analytics node:
-      const parent_type =  await axios.get('http://localhost:5001/neo4j_get_parent_type', {
-        params: { endpoint: endpoint, node_name: node_name }
-      });
-      if (parent_type.data[0] === "staticdata") {
-        // Static Data Analysis - Analyses the last uploaded static file
-        // Store task in Neo4J:
-        const updateTaskResponse = await axios.post('http://localhost:5001/neo4j_update_task', {
-          endpoint: endpoint,
-          node_name: node_name,
-          task: inputText
+        const codeResponse = await axios.get(`http://localhost:5000/analytics_generate_and_run_code`, {
+          params: { task: inputText}
         });
-
-        // If the task update is successful, call the analytics API to generate code:
-        if (updateTaskResponse.status === 200) {
-          const urlResponse = await axios.get(`http://localhost:5000/minio_get_last_url`, {
-            params: { endpoint: endpoint }
-          });
-          const url = urlResponse.data.url;
-          console.log('[AnalyticsChart.tsx] Fetched URL (for download):', url);
-          const codeResponse = await axios.get(`http://localhost:5002/analytics_generate_and_run_code`, {
-            params: { task: inputText, url: url }
-          });
-          const generatedCode = codeResponse.data.code;
-          const executationResult = codeResponse.data.result;
-          setResultText(codeResponse.data.result);
-          // Store the result from running code in Neo4J:
-          const updateResultResponse = await axios.post('http://localhost:5001/neo4j_update_result', {node_name: node_name, result: codeResponse.data.result, endpoint: endpoint});
-          console.log('[AnalyticsChart.tsx] Status for updating result:', updateResultResponse.status);
-        } else {
-          // Handle unsuccessful task update response
-          console.error('Failed to update task:', updateTaskResponse.status);
-          alert('Failed to update task in Neo4J.');
-        }
-      } else {
-        // Realtime Data Analysis - Analyses the latest downloaded real-time file
-        // Store task in Neo4J:
-        const updateTaskResponse = await axios.post('http://localhost:5001/neo4j_update_task', {
-          endpoint: endpoint,
-          node_name: node_name,
-          task: inputText
-        });
-         // If the task update is successful, call the analytics API to generate code:
-        if (updateTaskResponse.status === 200) {
-          const url = null;
-          const codeResponse = await axios.get(`http://localhost:5002/analytics_generate_and_run_code`, {
-            params: { task: inputText, url: url }
-          });
-          const generatedCode = codeResponse.data.code;
-          const executationResult = codeResponse.data.result;
-          setResultText(codeResponse.data.result);
-          // Store the result from running code in Neo4J:
-          const updateResultResponse = await axios.post('http://localhost:5001/neo4j_update_result', {node_name: node_name, result: codeResponse.data.result, endpoint: endpoint});
-          console.log('[AnalyticsChart.tsx] Status for updating result:', updateResultResponse.status);
-        }
-      }
+        const generatedCode = codeResponse.data.code;
+        const executationResult = codeResponse.data.result;
+        setResultText(codeResponse.data.result);
+        // Store the result from running code in Neo4J:
     } catch (error) {
-      console.error('Failed in processing task:', error);
-      alert('Failed to process task.');
+      console.error('[AnalyticsChart.tsx] Failed in analyzing task:', error);
+      alert('[AnalyticsChart.tsx] Failed to analyze task.');
     }  finally {
       const endTime = new Date(); // End timer
       const duration = (endTime.getTime() - startTime.getTime()) / 1000; // Calculate duration in seconds
-      console.log(`[AnalyticsChart.tsx] handleSubmit execution time: ${duration} seconds`);
+      console.log(`[AnalyticsChart.tsx] Task analysis (Input to Output) - Execution time: ${duration} seconds`);
     }
   };
 

@@ -213,8 +213,10 @@ def print_info_object(bucket_name, object_name, prefix = None, version_id=None):
     # TODO: Provide the correct SSE-C key if encrypted object
     result = client.stat_object(bucket_name, object_name, version_id = version_id)
     # TODO: Provide more info (depends on need)
+    string_to_be_returned = "Object "+object_name+" was last-modified: "+str(result.last_modified)+", and has size: "+str(result.size)
     print("[minio_access.py] Object {0} was last-modified: {1}, has size: {2}".format(object_name, result.last_modified, result.size,),)
     # Tested
+    return string_to_be_returned
 
 def get_url_object(bucket_name, object_name, prefix = None, version_id=None, expires = timedelta(hours=1)):
     '''
