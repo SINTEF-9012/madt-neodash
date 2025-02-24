@@ -165,6 +165,31 @@ def download_last_object(bucket_name, file_path, prefix = None, version_id=None)
         print("[minio_access.py] Local download complete.")
     except S3Error as exc:
         print("[minio_access.py] Error occurred:", exc)
+
+def download_lumen_object(bucket_name, file_path, prefix = None, version_id=None):
+    '''
+        Download lastly modified/added object data from given bucket (and eventual prefix) to given path and return path. 
+    '''
+    global client
+    try:
+        main()
+    except S3Error as exc:
+        print("[minio_access.py] Error occurred.", exc)
+    try:
+        # List objects in the bucket
+        objects = client.list_objects(bucket_name, prefix=prefix, recursive=True)
+        # Retrieve the latest added object
+        latest_object = max(objects, key=lambda obj: obj.last_modified)
+        # Download object locally on path
+        # Use the object's original name for the download path
+        file_path = os.path.join(file_path, latest_object.object_name)
+        # TODO: Provide the correct SSE-C key if encrypted object
+        client.fget_object(bucket_name, latest_object.object_name, file_path, version_id = version_id)
+        print("[minio_access.py] Local download complete.")
+        return file_path
+    except S3Error as exc:
+        print("[minio_access.py] Error occurred:", exc)
+        return ""
    
 
 def upload_object(bucket_name, object_name, file_path, prefix = None, metadata = None):
