@@ -163,6 +163,7 @@ def download_last_object(bucket_name, file_path, prefix = None, version_id=None)
         # TODO: Provide the correct SSE-C key if encrypted object
         client.fget_object(bucket_name, latest_object.object_name, file_path, version_id = version_id)
         print("[minio_access.py] Local download complete.")
+        return latest_object.object_name
     except S3Error as exc:
         print("[minio_access.py] Error occurred:", exc)
 

@@ -97,7 +97,8 @@ def analytics_generate_and_run_code():
         "An ASSET node has the properties: name, layer, ip, description and uid."
         "A DATASOURCE node has properties: name, type, format, bucket, endpoint and uid, and is always the DataSourceOf an asset: DATASOURCE-[:DataSourceOf]->ASSET."
         "A STATICDATA node has properties: name, type, file_name, add_date, format and uid, and is always the DataOf an asset: STATICDATA-[:DataOf]->[ASSET]."
-        "An ASSET can have the following relations to another ASSET: DistributesTo, ConnectTo, Manages, DataTo and Secures.",
+        "An ASSET can have the following relations to another ASSET: DistributesTo, ConnectTo, Manages, and Secures."
+        "Be careful about the direction of relationships. it's always from staticdata to asset",
         llm_config = openai_llm_config,
         code_execution_config=False,
         human_input_mode= "ALWAYS" if DEBUG_MODE else "NEVER"
@@ -147,12 +148,14 @@ def analytics_generate_and_run_code():
     def getFilepathStatic(input: Annotated[StaticInput, "Return file path from data saved locally from MinIO."]) -> str:
         response = requests.get(
             "http://localhost:5000/minio_local_download",
+            #"http://localhost:5003/minio_local_download",
             params={
                 'endpoint': input.bucket
             }
         )
         if response.ok:
             json_response = response.json()
+            print(json_response)
             file_path = json_response["file_path"]
             return file_path
         else:
@@ -250,7 +253,7 @@ def analytics_generate_and_run_code():
 
     # Create a local command line code executor.
     local_executor = LocalCommandLineCodeExecutor(
-    timeout=10,  # Timeout for each code execution in seconds.
+    timeout=60,  # Timeout for each code execution in seconds.
     work_dir=llm_work_dir,  
     )
 
