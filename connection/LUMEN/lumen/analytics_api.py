@@ -92,13 +92,12 @@ def analytics_generate_and_run_code():
 
     graph_explorer = ConversableAgent(
         "GraphExplorer",
-        system_message = "You can access a Neo4j Graph Database, and you can answer questions by querying the database. For this, generate Cypher queries and use a registered tool to execute the query and retrive the knowledge you need."
-        "The graph has the following schema:"
-        "An ASSET node has the properties: name, layer, ip, description and uid."
-        "A DATASOURCE node has properties: name, type, format, bucket, endpoint and uid, and is always the DataSourceOf an asset: DATASOURCE-[:DataSourceOf]->ASSET."
-        "A STATICDATA node has properties: name, type, file_name, add_date, format and uid, and is always the DataOf an asset: STATICDATA-[:DataOf]->[ASSET]."
-        "An ASSET can have the following relations to another ASSET: DistributesTo, ConnectTo, Manages, and Secures."
-        "Be careful about the direction of relationships. it's always from staticdata to asset",
+        system_message = "Your name is GraphOperator. You can access a Neo4j Graph Database, and you can answer questions by querying the database. For this, generate Cypher queries and use a registered tool to execute the query and retrive the knowledge you need.\
+        The graph has the following schema:\
+        ASSET node has the properties: name, layer, ip, description and uid.\
+        DATASOURCE node has properties: name, type (type of data), format (data format), bucket, endpoint and uid. Use: DATASOURCE-[:DataSourceOf]->ASSET.\
+        STATICDATA node has properties: name, type (type of data), format (data format), bucket, file_name, add_date, and uid. Use: STATICDATA-[:DataOf]->[ASSET].\
+        Note on relations: ASSET can have the following relations to another ASSET: DistributesTo, ConnectTo, Manages, and Secures.",
         llm_config = openai_llm_config,
         code_execution_config=False,
         human_input_mode= "ALWAYS" if DEBUG_MODE else "NEVER"
@@ -147,8 +146,7 @@ def analytics_generate_and_run_code():
 
     def getFilepathStatic(input: Annotated[StaticInput, "Return file path from data saved locally from MinIO."]) -> str:
         response = requests.get(
-            "http://localhost:5000/minio_local_download",
-            #"http://localhost:5003/minio_local_download",
+            "http://localhost:5000/minio_lumen_download",
             params={
                 'endpoint': input.bucket
             }
@@ -172,7 +170,7 @@ def analytics_generate_and_run_code():
 
     filepath_exporter = ConversableAgent(
         "FilePathExporter",
-        system_message = "You return the file path for relevant data files, given a task and a bucket ID."
+        system_message = "Your name is FilePathDriver. You return the file path for relevant data files, given a task and a bucket ID."
         "You can obtain both MinIO and InfluxDB file paths through two registered functions that return the file path after saving the file contained in these databases."
         "Decide whether it is the MinIO database (static objects) or the InfluxDB (time-series data) function that should be called and create the necessary function argument(s).",
         llm_config = openai_llm_config,
@@ -217,10 +215,10 @@ def analytics_generate_and_run_code():
 
     task_planner = ConversableAgent(
         "TaskPlanner",
-        system_message = "You are an expert task planner that make plans for a group of agents."
-        "Given a task, you break down it into sub-tasks, each of which should be performed by one of your 'partner' agents."
-        "You will be introduced to your 'partner' agents. It is fine if not all agents are involved, but typically they are."
-        "Context: The agents analyze data inside a digital twin. Assets and data nodes (MinIO and InfluxDB) are found in a knowledge graph. Help solve an user-specified task by planning agent actions.",
+        system_message = "Your name is TaskPlanner. You are an expert task planner that make plans for a group of agents. It is fine if not all agents are involved."
+        "Given a task, you break down it into sub-tasks, each of which should be performed by one of your 'partner' agents, but only if the agent is relevant to the task."
+        "You will be introduced to your 'partner' agents. "
+        "Context: The agents either analyze or update data inside a digital twin based on a knowledge graph containing asset and data nodes (that link to MinIO and InfluxDB). The asset nodes have properties like name, description, ip etc. The data nodes have properties such as bucket, format, name etc.",
         llm_config = openai_llm_config,
         code_execution_config=False,  # Turn off code execution for this agent.
         human_input_mode = "ALWAYS"  if DEBUG_MODE else "NEVER"
@@ -229,7 +227,7 @@ def analytics_generate_and_run_code():
     code_generator = ConversableAgent("CodeGenerator",
         llm_config=openai_llm_config,
         system_message = '''
-            You generate pure Python code, with no explanations. \
+            Your name is CodeGenerator. You generate pure Python code, with no explanations. \
             You will get a task, and a path to a file (of a specific type). \
             Generate one function called solve_task(file_path) that tries to solve the entire or at least part of the task. \
             At the end, include one line of code to call solve_task function. Do not use the __main__ segment! \
@@ -244,9 +242,10 @@ def analytics_generate_and_run_code():
     # Create an evaluator:
     output_evaluator = ConversableAgent("OutputEvaluator",
         llm_config=openai_llm_config,
-        system_message = "You evaluate outputs. Given a task and an output, check whether the output answers the task. \
-                    If the output is valid, explain the result in a humanly manner (eventually adding some recommandations) and end your response with TERMINATE. \
-                    Else, if the output is an error or it does not make sense, your response should only explain the problem. ",
+        system_message = "Your name is OutputEvaluator. Given a task and an output, you check whether the output answers the task and then respond by following one of the two alternatives:\
+                    1. If the output is valid, respond by repeating the output then end your response with TERMINATE. \
+                    2. If the output contains an error or it does not make sense, only explain the problem in a human-like manner. \
+                    Note: For the first alternative, do not add any details.",
         code_execution_config=False, 
         human_input_mode="ALWAYS" if DEBUG_MODE else "NEVER",  
     )
@@ -310,12 +309,14 @@ def analytics_generate_and_run_code():
             generator_loops = generator_loops + 1
         elif message['name'] == "GraphOperator":
             explorer_loops = explorer_loops + 1
+    # Remove TERMINATE from answer before returning and saving:
+    result = result.replace("TERMINATE", "")
     response_content = {'result': result}
     active_agents = set(all_agents)
     generator_loops = generator_loops if generator_loops >= 2 else 0 # If code generator is only used once --> no loops
     explorer_loops = explorer_loops if explorer_loops >= 2 else 0 # If code generator is only used once --> no loops
 
-    ### LUMEN EXPERIMENTS: task - final answer - KG (YES/NO) - ACTIVE AGENTS - EXEC TIME - USER INTERVENTION NUMBER - LOOPS COUNT for GENERATOR/EXPLORER - TOTAL NUM MESSAGES EXCHANGED
+    ### LUMEN EXPERIMENTS: task - final answer - KG (YES/NO) - ACTIVE AGENTS - NUMBER ACTIVE AGENTS - EXEC TIME - USER INTERVENTION NUMBER - LOOPS COUNT for GENERATOR/EXPLORER - TOTAL NUM MESSAGES EXCHANGED
     print("[analytics_api.py] Record:")
     print([task, result, kg, active_agents, len(active_agents), exec_time, len(chat_result.human_input), explorer_loops, generator_loops, msg_count])
     record_task_result(task, result, kg, active_agents, len(active_agents), exec_time, len(chat_result.human_input), explorer_loops, generator_loops, msg_count)
@@ -328,7 +329,7 @@ def record_task_result(task, answer, kg, active_agents, num_active_agents, exec_
     file_exists = os.path.isfile(filename)
 
     with open(filename, mode='a', newline='', encoding='utf-8') as file:
-        writer = csv.writer(file)
+        writer = csv.writer(file, quotechar='"', quoting=csv.QUOTE_MINIMAL)
         # Automatically creates file with headers if it doesn't exist
         if not file_exists:
             writer.writerow(['Task', 'Answer', 'UseKG', 'ActiveAgents', 'NumActiveAgents', 'ExecutionTime', 'UserIntervention', 'GraphExplorerLoops', 'CodeGeneratorLoops', 'NumMessageExchanges'])

@@ -36,8 +36,8 @@ def minio_local_download():
     if not os.path.exists(download_dir):
         os.makedirs(download_dir)
     print(f"[minio_api.py] Received request to locally download MinIO data for latest file in bucket: ", bucket_name, " and save on path: ", download_dir)
-    file_path = download_last_object(bucket_name=bucket_name, file_path=download_dir) 
-    return jsonify({'status': 200, 'file_path': file_path})
+    download_last_object(bucket_name=bucket_name, file_path=download_dir) 
+    return jsonify({'status': 200})
 
 @app.route('/minio_lumen_download', methods=['GET'])
 def minio_lumen_download():
