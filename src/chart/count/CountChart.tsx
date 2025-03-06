@@ -22,13 +22,13 @@ const CountChart = (props: ChartProps) => {
     // Fetch result of the static node linked to current node using identifier: 
     try {
       // Fetch task:
-      const taskResponse = await axios.get(`http://localhost:5000/neo4j_get_task`, {
+      const taskResponse = await axios.get(`http://localhost:5001/neo4j_get_task`, {
           params: { endpoint: endpoint }
       });
       setTask(taskResponse.data[0].toString()); // Assuming response data is the task
       console.log('[CountChart.tsx] Fetched following task:', task);
       // Fetch result:
-      const resultResponse = await axios.get(`http://localhost:5000/neo4j_get_result`, {
+      const resultResponse = await axios.get(`http://localhost:5001/neo4j_get_result`, {
           params: { endpoint: endpoint }
       });
       // console.log(resultResponse.data[0].toString());

@@ -52,7 +52,7 @@ const StatisticsChart = (props: ChartProps) => {
       });
       const url = urlResponse.data.url;
       console.log('[StatisticsChart.tsx] Fetched URL:', url);
-      const statResponse = await axios.get(`http://localhost:5000/get_statistics`, {
+      const statResponse = await axios.get(`http://localhost:5003/get_statistics`, {
         params: { url: url }
       });
       console.log(statResponse.data);

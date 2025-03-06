@@ -58,7 +58,6 @@ const StaticDataChart = (props: ChartProps) => {
           'Content-Type': 'multipart/form-data',
         },
       });
-      console.log('[StaticDataChart.tsx] HERE22');
       console.log('[StaticDataChart.tsx] File upload returned following status:', uploadResponse.data.status);
       // If upload is successful, fetch last object URL
       if (uploadResponse.data.status === 200){
@@ -77,7 +76,7 @@ const StaticDataChart = (props: ChartProps) => {
             data_format: uploadResponse.data.format,
             data_type: uploadResponse.data.format
           };
-          const postUrl = 'http://localhost:5000/neo4j_update_metadata';
+          const postUrl = 'http://localhost:5001/neo4j_update_metadata';
           const updateResponse = await axios.post(postUrl, postData);
           console.log('[StaticDataChart.tsx] Update status in Neo4j:', updateResponse.data.status);
         } else {
