@@ -215,10 +215,9 @@ def analytics_generate_and_run_code():
 
     task_planner = ConversableAgent(
         "TaskPlanner",
-        system_message = "Your name is TaskPlanner. You are an expert task planner that make plans for a group of agents. It is fine if not all agents are involved."
-        "Given a task, you break down it into sub-tasks, each of which should be performed by one of your 'partner' agents, but only if the agent is relevant to the task."
-        "You will be introduced to your 'partner' agents. "
-        "Context: The agents either analyze or update data inside a digital twin based on a knowledge graph containing asset and data nodes (that link to MinIO and InfluxDB). The asset nodes have properties like name, description, ip etc. The data nodes have properties such as bucket, format, name etc.",
+        system_message = "Your name is TaskPlanner. You are an expert task planner that make plans for a group of agents, which you will be introduced to."
+        "Given a task, you break it down into sub-tasks, each of which should be performed by one of the agents. It is fine if not all agents are involved."
+        "Context: The agents either analyze or update data within a digital twin. The digital twin is based on a knowledge graph containing asset and data nodes. The asset nodes have properties like name, description, ip etc. The data nodes have properties such as bucket, format, name etc.",
         llm_config = openai_llm_config,
         code_execution_config=False,  # Turn off code execution for this agent.
         human_input_mode = "ALWAYS"  if DEBUG_MODE else "NEVER"
