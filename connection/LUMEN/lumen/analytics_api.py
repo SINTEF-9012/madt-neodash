@@ -92,11 +92,11 @@ def analytics_generate_and_run_code():
 
     graph_explorer = ConversableAgent(
         "GraphExplorer",
-        system_message = "Your name is GraphOperator. You can access a Neo4j Graph Database, and you can answer questions by querying the database. For this, generate Cypher queries and use a registered tool to execute the query and retrive the knowledge you need.\
+        system_message = "Your name is GraphOperator. You can answer questions by querying a Neo4j Graph Database. For this, generate Cypher queries and use the registered tool to execute the query and, if relevant, retrive the knowledge you need.\
         The graph has the following schema:\
         ASSET node has the properties: name, layer, ip, description and uid.\
         DATASOURCE node has properties: name, type (type of data), format (data format), bucket, endpoint and uid. Use: DATASOURCE-[:DataSourceOf]->ASSET.\
-        STATICDATA node has properties: name, type (type of data), format (data format), bucket, file_name, add_date, and uid. Use: STATICDATA-[:DataOf]->[ASSET].\
+        STATICDATA node has properties: name, type (type of data), format (data format), bucket, file_name, add_date, and uid. Use: STATICDATA-[:DataOf]->[ASSET]. \
         Note on relations: ASSET can have the following relations to another ASSET: DistributesTo, ConnectTo, Manages, and Secures.",
         llm_config = openai_llm_config,
         code_execution_config=False,
@@ -125,7 +125,7 @@ def analytics_generate_and_run_code():
 
     # Create nested chat agent for FileExporter:
 
-    def getFilepathTimeseries(input: Annotated[TimeseriesInput, "Return file path from data saved locally from InfluxDB."]) -> str:
+    def getFilepathTimeseries(input: Annotated[TimeseriesInput, "Return file path of data saved locally from InfluxDB."]) -> str:
         response = requests.get(
             "http://localhost:4999/influxdb_download_data",
             params={
@@ -144,7 +144,7 @@ def analytics_generate_and_run_code():
             print("Error:", response.status_code, response.text)
             return ""
 
-    def getFilepathStatic(input: Annotated[StaticInput, "Return file path from data saved locally from MinIO."]) -> str:
+    def getFilepathStatic(input: Annotated[StaticInput, "Return file path of data saved locally from MinIO."]) -> str:
         response = requests.get(
             "http://localhost:5000/minio_lumen_download",
             params={
@@ -170,8 +170,8 @@ def analytics_generate_and_run_code():
 
     filepath_exporter = ConversableAgent(
         "FilePathExporter",
-        system_message = "Your name is FilePathDriver. You return the file path for relevant data files, given a task and a bucket ID."
-        "You can obtain both MinIO and InfluxDB file paths through two registered functions that return the file path after saving the file contained in these databases."
+        system_message = "Your name is FilePathDriver. Given a task and a bucket ID to the data, you save the data locally and return the file path for relevant data files using the registered tools. "
+        "You can obtain both MinIO and InfluxDB data file paths through two registered functions."
         "Decide whether it is the MinIO database (static objects) or the InfluxDB (time-series data) function that should be called and create the necessary function argument(s).",
         llm_config = openai_llm_config,
         code_execution_config=False,
@@ -207,7 +207,7 @@ def analytics_generate_and_run_code():
 
     # Human proxy to initiate the chat:
     human_proxy = ConversableAgent(
-        "HumanTask",
+        "HumanProxy",
         llm_config=False,  # no LLM used for human proxy
         code_execution_config=False,
         human_input_mode="ALWAYS" if DEBUG_MODE else "NEVER",  # always ask for human input
@@ -215,9 +215,9 @@ def analytics_generate_and_run_code():
 
     task_planner = ConversableAgent(
         "TaskPlanner",
-        system_message = "Your name is TaskPlanner. You are an expert task planner that make plans for a group of agents, which you will be introduced to."
-        "Given a task, you break it down into sub-tasks, each of which should be performed by one of the agents. It is fine if not all agents are involved."
-        "Context: The agents either analyze or update data within a digital twin. The digital twin is based on a knowledge graph containing asset and data nodes. The asset nodes have properties like name, description, ip etc. The data nodes have properties such as bucket, format, name etc.",
+        system_message = "Your name is TaskPlanner. You make plans for a subset of specialized agents, which you will be introduced to."
+        "Given a task, you break it down into sub-tasks, each of which should be performed by one agent. "
+        "Context: Data is accessed and updated by agents through a knowledge graph containing asset nodes (which describe assets) and data nodes (which hold information about data stored in MinIO and InfluxDB).",
         llm_config = openai_llm_config,
         code_execution_config=False,  # Turn off code execution for this agent.
         human_input_mode = "ALWAYS"  if DEBUG_MODE else "NEVER"
@@ -262,14 +262,26 @@ def analytics_generate_and_run_code():
         human_input_mode="ALWAYS" if DEBUG_MODE else "NEVER",  
     )
 
+    # Comment out descriptions to use system message instead.
     task_planner.description = "Provides a plan/sub-tasks for all agents, given a task. This agent should be the first to engage."
     graph_operator.description = "Has access to knowledge graph. Generates CYPHER queries and executes them. Can search for bucket IDs. "
-    filepath_driver.description = "Provides the file path to relevant data files after saving them locally, given a task and a bucket ID."
+    filepath_driver.description = "Saves data files locally and provides their file path, given a task and a bucket ID."
     code_generator.description = "Generates Python code, given a task."
     code_executor.description = "Executes generated Python code and prints the execution output, given a task and a file path."
     output_evaluator.description = "Evaluates final output from an agent and terminates if satisfied (aka: task is solved)."
+    # human_proxy.description = "Provides additional human input, in case the task is missing information or unclear."
+   
+    allowed_transitions = {
+        task_planner: [graph_operator, code_generator, human_proxy],
+        graph_operator: [filepath_driver, output_evaluator, human_proxy],
+        filepath_driver: [code_generator, output_evaluator, human_proxy],
+        code_generator: [code_executor],
+        code_executor: [output_evaluator,],
+        output_evaluator: [task_planner, human_proxy, ],
+        # human_proxy: [task_planner, human_proxy],
+    }
 
-    group_chat = GroupChat(agents=[task_planner, graph_operator, filepath_driver, code_generator, code_executor, output_evaluator], messages=[], send_introductions = True)
+    group_chat = GroupChat(agents=[task_planner, graph_operator, filepath_driver, code_generator, code_executor, output_evaluator], messages=[], send_introductions = True, allowed_or_disallowed_speaker_transitions=allowed_transitions, speaker_transitions_type="allowed")
 
     group_chat_manager = GroupChatManager(
         groupchat=group_chat,
@@ -308,6 +320,7 @@ def analytics_generate_and_run_code():
             generator_loops = generator_loops + 1
         elif message['name'] == "GraphOperator":
             explorer_loops = explorer_loops + 1
+        print("Msg "+ str(msg_count) + " Name: " + message['name'])
     # Remove TERMINATE from answer before returning and saving:
     result = result.replace("TERMINATE", "")
     response_content = {'result': result}

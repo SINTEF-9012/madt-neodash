@@ -19,6 +19,8 @@ import AnalyticsChart from '../chart/analytics/AnalyticsChart';
 import StatisticsChart from '../chart/statistics/StatisticsChart';
 import CountChart from '../chart/count/CountChart';
 import RealtimeDataChart from '../chart/realtime/RealtimeDataChart';
+import DesignChart from '../chart/design/DesignChart';
+import EventChart from '../chart/event/EventChart';
 
 // TODO: make the reportConfig a interface with not self-documented code
 // Use Neo4j 4.0 subqueries to limit the number of rows returned by overriding the query.
@@ -1312,6 +1314,20 @@ export const REPORT_TYPES = {
     helperText: "I allow the download of content following the endpoint to a real-time database",
     component: RealtimeDataChart,
     maxRecords: 1,
+    settings: {}
+  },
+  design: {
+    label: "Design",
+    helperText: "I allow updating the graph database with nodes and relationships.",
+    component: DesignChart,
+    maxRecords: 1000,
+    settings: {}
+  },
+  event: {
+    label: "Event",
+    helperText: "I allow mapping events in the graph database.",
+    component: EventChart,
+    maxRecords: 1000,
     settings: {}
   }
 };

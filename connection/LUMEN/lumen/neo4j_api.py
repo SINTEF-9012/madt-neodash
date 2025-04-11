@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 from neo4j import GraphDatabase
-# from kafka import KafkaProducer, KafkaConsumer
+from kafka import KafkaProducer, KafkaConsumer
 from threading import Thread
 import configparser
 import json
@@ -14,8 +14,8 @@ import magic
 import shutil
 
 # Load configurations from .ini files
-#config_kafka = configparser.ConfigParser()
-#config_kafka.read('kafka_config.ini')
+config_kafka = configparser.ConfigParser()
+config_kafka.read('kafka_config.ini')
 
 config_neo4j = configparser.ConfigParser()
 config_neo4j.read('neo4j_config.ini')
@@ -179,14 +179,15 @@ def neo4j_run_query():
     
 @app.route('/api/neo4j_get_graph', methods=['GET'])
 def neo4j_get_graph():
+    uc = request.args.get('uc')
     # API wrap for function obtaining current graph in Neo4J
-    data = neo4j_graph()
+    data = neo4j_graph(uc)
     return jsonify(data)
 
 
-def neo4j_graph():
-    query = """
-    MATCH (n)-[r]->(m)
+def neo4j_graph(uc):
+    query = f"""
+    MATCH (n:ASSET)-[r]->(m:ASSET) WHERE n.uc = {uc} AND m.uc = {uc}
     RETURN n, r, m
     """
     try:
@@ -229,13 +230,127 @@ def neo4j_graph():
     finally:
         driver.close()
 
-# UNCOMMENT FOR KAFKA INTEGRATION
-'''
+def neo4j_listen_for_events(topic):
+    # Fetch current UC:
+    uc = int(topic[2]) # Fetch UC number
+    # Listen to kafka topic continuously
+    consumer = KafkaConsumer(topic,
+        bootstrap_servers=[config_kafka.get('kafka', 'bootstrap_servers')],
+        security_protocol=config_kafka.get('kafka', 'security_protocol'),
+        sasl_mechanism=config_kafka.get('kafka', 'sasl_mechanism'),
+        sasl_plain_username=config_kafka.get('kafka', 'sasl_plain_username'),
+        sasl_plain_password=config_kafka.get('kafka', 'sasl_plain_password'),
+        auto_offset_reset=config_kafka.get('kafka', 'auto_offset_reset'), 
+        enable_auto_commit=True,        # Automatically commit offsets
+        value_deserializer=lambda x: x.decode('utf-8')  # Deserialize messages to string
+    )
+    # Keep listening indefinitely:
+    try:
+        print(f'[neo4j_api.py] Listening for messages on topic: {topic}, for use case {uc}')
+        for message in consumer:
+            message_content = message.value
+            print(f'[neo4j_api.py] Received message: {message_content} from partition: {message.partition}, offset: {message.offset}')
+            properties  = parse_alarm_properties(message_content) 
+            # New EVENT with the properties fetched from alarm. Related to source ip asset
+            query = """
+            MERGE (asset:ASSET {ip: $src_ip, uc: $uc})
+            CREATE (event:EVENT $props)
+            SET event.uc = $uc
+            CREATE (event)-[:EventOf]->(asset)
+            RETURN event, asset
+            """
+            # Use the src_ip from the parsed properties; if absent, the query might fail.
+            src_ip = properties.get("src_ip")
+            
+            # Log the parameters that will be passed for debugging.
+            print(f"[neo4j_api.py] Creating EVENT node with properties: {properties} and linking to ASSET node with ip: {src_ip}")
+            
+            # Run the query with parameters using the Neo4j driver.
+            with driver.session() as session:
+                session.run(query, src_ip=src_ip, props=properties,  uc=uc)
+    except KeyboardInterrupt:
+        print("[neo4j_api.py] Consumer stopped from keyboard.")
+    except Exception as e:
+        print(f"[neo4j_api.py] Error processing message: {e}")
+    finally:
+        consumer.close()
+
+def parse_alarm_properties(message_content):
+    """
+    Parses a STIX alert message and extracts properties to create a new EVENT node in Neo4j.
+    
+    The function expects a STIX bundle JSON message, with objects that may include:
+      - An "identity" object (for source identity, e.g. 'MMT-PROBE'),
+      - An "observed-data" object (holding event-related properties),
+      - "ipv4-addr" objects (for source and destination IP addresses),
+      - A "x-attack-type" object (for attack-related properties).
+    
+    Returns a dictionary with extracted properties.
+    """
+    
+    try:
+        data = json.loads(message_content)
+    except json.JSONDecodeError as e:
+        print(f"JSON decode error: {e}")
+        return {}
+    
+    properties = {}
+    objects = data.get("objects", [])
+    
+    # Iterate over all objects in the bundle to extract properties
+    for obj in objects:
+        obj_type = obj.get("type", "").lower()
+        
+        if obj_type == "identity":
+            # Extracting properties from the identity object
+            properties["identity_name"] = obj.get("name")
+        
+        elif obj_type == "observed-data":
+            # Extract properties relevant for the event
+            properties["observed_data_id"] = obj.get("id")
+            properties["first_observed"] = obj.get("first_observed")
+            properties["last_observed"] = obj.get("last_observed")
+            properties["number_observed"] = obj.get("number_observed")
+            
+            # Look in the extensions for an event description (if provided)
+            obs_ext = obj.get("extensions", {}).get("x-observed-data-ext", {})
+            if obs_ext:
+                properties["description"] = obs_ext.get("description")
+        
+        elif obj_type == "ipv4-addr":
+            # You might have two ipv4-addr objects.
+            # Determine if it represents source or destination based on the id field pattern.
+            addr_id = obj.get("id", "")
+            ip_value = obj.get("value")
+            if "src_asset_uuid" in addr_id:
+                properties["src_ip"] = ip_value
+            elif "dst_asset_uuid" in addr_id:
+                properties["dst_ip"] = ip_value
+        
+        elif obj_type == "x-attack-type":
+            # Extract information about the type of attack.
+            properties["attack_type"] = obj.get("user_id")  
+            properties["attack_created"] = obj.get("created")
+            properties["attack_modified"] = obj.get("modified")
+            
+            # Look for external references (e.g., TTP identifiers)
+            external_refs = obj.get("external_references", [])
+            if external_refs and isinstance(external_refs, list):
+                properties["ttp_id"] = external_refs[0].get("external_id")
+            
+            # Extract simulation information if available
+            sim_ext = obj.get("extensions", {}).get("x-simulation-ext", {})
+            if sim_ext:
+                properties["simulation"] = sim_ext.get("simulation")
+    return properties
+
 def neo4j_listen_for_changes(topic):
     global graph_data
-    print(f'[neo4j_api.py] Checking for changes...')
+    # Fetch current UC:
+    uc = int(topic[2]) # Fetch UC number
+    print(f'[neo4j_api.py] Checking for changes in knowledge graph...')
     # Fetch current graph: 
-    current_graph = neo4j_graph()
+    current_graph = neo4j_graph(uc)
     # Check IF the last message its same as current graph, if not, update:
     if str(graph_data) != str(current_graph):
         print(f"[neo4j_api.py] Updating kafka topic with changed KG.")
@@ -253,7 +368,7 @@ def neo4j_listen_for_changes(topic):
     # Checks updates indefinitely
     time.sleep(3600) # Check each hour for updates
     neo4j_listen_for_changes(topic)
-'''
+
 
 @app.route('/neo4j_create_attack', methods=['POST'])
 def neo4j_create_attack():
@@ -306,11 +421,165 @@ def neo4j_create_threat():
     except Exception as e:
         return jsonify({"[neo4j_api.py] Encountered error when adding new Threat node:": str(e)}), 400
 
+@app.route('/neo4j_add_node', methods=['POST'])
+def neo4j_add_node():
+    print("[neo4j_api.py] Request to add node to KG initiated.")
+    data = request.json
+    node_type = data.get("type", "")
+    name = data.get("name", "")
+    description = data.get("description", "")
+    layer = data.get("layer", "")
+    endpoint = data.get("endpoint", "")
+    asset_types = data.get("assetTypes", {})
+    custom_props = data.get("customProps", [])
+    usecase = int(data.get("usecase", ""))
+    datasource_tag = False
+    staticdata_tag = False
+    if not name or not node_type:
+        return jsonify({"error": "Missing required fields"}), 400
+
+    # Merge base properties
+    props = {
+        "name": name,
+        "description": description,
+        "layer": layer,
+        "uc": usecase
+    }
+    for prop in custom_props:
+        key, value = prop.get("key"), prop.get("value")
+        if key and value:
+            props[key] = value
+    set_statements = ",\n            ".join([
+    f'n.{k} = {json.dumps(v)}' for k, v in props.items()])
+    query = f"""
+        CREATE (n:{node_type})
+        SET {set_statements},
+            n.uid = apoc.create.uuid()
+    """
+    print("[neo4j_api.py] Props in Query contain:" + query)
+    # If ASSET, and Data Source is selected
+    if node_type == "ASSET" and asset_types.get("datasource"):
+        datasource_tag = True # Set to true
+        query += f"""
+        WITH n
+        CREATE (ds:DATASOURCE {{
+            name: n.name + "_DataSource",
+            uid: apoc.create.uuid(),
+            bucket: n.uid,
+            uc: n.uc,
+            endpoint: "{endpoint}"
+        }})
+        MERGE (ds)-[:DataSourceOf]->(n)
+        """
+    if node_type == "ASSET" and asset_types.get("staticdata"):
+        staticdata_tag = True # Set to true
+        query += f"""
+        WITH n
+        CREATE (sd:STATICDATA {{
+            name: n.name + "_StaticData",
+            uid: apoc.create.uuid(),
+            bucket: n.uid,
+            uc: n.uc
+        }})
+        MERGE (sd)-[:DataOf]->(n)
+        """
+    query += "\nRETURN n.uid"
+    try:
+        with driver.session() as session:
+            result = session.run(query)
+            for record in result:
+                uid = record["n.uid"]  # Access each uid from the record
+                print("[neo4j_add_node] UID of node created: " + uid)
+            return jsonify({"message": f"{node_type} node created.", "datasource": datasource_tag, "staticdata": staticdata_tag, "uid":uid}), 200
+    except Exception as e:
+        print("[neo4j_add_node] Error:", e)
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/neo4j_add_relation', methods=['POST'])
+def neo4j_add_relation():
+    print("[neo4j_api.py] Request to add relationship to KG initiated.")
+    data = request.json
+    source_uid = data.get("source_uid")
+    target_uid = data.get("target_uid")
+    if not source_uid or not target_uid:
+        return jsonify({"error": "Missing source or target UID"}), 400
+    try:
+        with driver.session() as session:
+            # Step 1: Get labels of the source node
+            source_labels = session.run(
+                "MATCH (n {uid: $uid}) RETURN labels(n) AS labels",
+                {"uid": source_uid}
+            ).single()["labels"]
+            # Step 2: Determine relationship type
+            if "ASSET" in source_labels:
+                relation_type = "ConnectTo"
+            elif "EVENT" in source_labels:
+                relation_type = "EventOf"
+            elif "RISK" in source_labels:
+                relation_type = "RiskOf"
+            elif "ATTACK" in source_labels:
+                relation_type = "AttackOn"
+            else:
+                return jsonify({"error": "Unsupported source node type"}), 400
+            # Step 3: Create relationship in Cypher
+            cypher = f"""
+                MATCH (source {{uid: $source_uid}}), (target {{uid: $target_uid}})
+                MERGE (source)-[:{relation_type}]->(target)
+            """
+            session.run(cypher, {
+                "source_uid": source_uid,
+                "target_uid": target_uid
+            })
+            return jsonify({"message": f"Created {relation_type} relationship."}), 200
+    except Exception as e:
+        print("[neo4j_add_relation] Error:", e)
+        return jsonify({"error": str(e)}), 500
+    
+def get_events_report():
+    print("[neo4j_api.py] Request to run query in Neo4J and fetch event information for reporting purposes.")
+    query = """
+    MATCH (e:EVENT)-[:EventOf]->(a:ASSET)
+    RETURN a.name AS asset, count(e) AS event_count
+    """
+    # Data containers
+    asset_events = []
+    total_events = 0
+
+    with driver.session() as session:
+        results = session.run(query)
+        # Process each record returned by Neo4j
+        for record in results:
+            event_count = record["event_count"]
+            total_events += event_count
+            asset_events.append({
+                "name": record["asset"],
+                "events": event_count
+            })
+    print("[neo4j_api.py] Query ran successfully. Number of events detected: " + str(total_events))
+    # Package the data into a dict
+    return {
+        "total": total_events,
+        "assets": asset_events
+    }
+
+@app.route("/neo4j_events", methods=["GET"])
+def neo4j_events():
+    print("[neo4j_api.py] Request to fetch current events in Neo4J (report).")
+    try:
+        report = get_events_report()
+        return jsonify(report)
+    except Exception as e:
+        # Log and return an error response if needed.
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    # UNCOMMENT FOR KAFKA INTEGRATION:
-    #topic = config_kafka.get('kafka', 'topic')
-    #listener_thread = Thread(target=neo4j_listen_for_changes, args=(topic,))
-    #print(f'[neo4j_api.py] Listener starting...')
-    #listener_thread.start()
+    print(f'[neo4j_api.py] Listener starting...')
+    # UNCOMMENT FOR KAFKA INTEGRATION FOR MADT4BC TOPIC:
+    madt_topic = config_kafka.get('kafka', 'madt_topic')
+    listener_thread_graph = Thread(target=neo4j_listen_for_changes, args=(madt_topic,))
+    listener_thread_graph.start()
+    events_topic = config_kafka.get('kafka', 'event_topic')
+    listener_thread_events = Thread(target=neo4j_listen_for_events, args=(events_topic,))
+    listener_thread_events.start()
     app.run(host="0.0.0.0", port=5001)

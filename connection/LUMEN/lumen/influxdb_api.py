@@ -117,6 +117,31 @@ def influxdb_download_data():
         'file_path': file_path,
         'output': output})
 
+@app.route('/influxdb_add_bucket', methods=['POST'])
+def influxdb_add_bucket():
+    # Extract JSON data from the request body
+    data = request.get_json()
+    # Retrieve the bucket name from the JSON payload
+    bucket_id = data.get('bucket') if data else None
+    if not bucket_id:
+        return jsonify({"error": "Bucket ID is missing in the request."}), 400
+    print("[influxdb_api.py] InfluxDB requested to add bucket with ID " + bucket_id)
+    # Get the Buckets API
+    buckets_api = client.buckets_api()
+    retention_rules = []  # Define retention rules (default: indefinitely)
+    try:
+        bucket = buckets_api.create_bucket(
+            bucket_name=bucket_id, 
+            org_id=config_influxdb.get('influxdb', 'INFLUXDB_ORG'),
+            retention_rules=retention_rules
+        )
+    except Exception as e:
+        print(f"[influxdb_api.py] Error creating bucket {bucket_id}: {e}")
+        return jsonify({"error": str(e)}), 500
+    print(f"[influxdb_api.py] Bucket {bucket.name} created with ID: {bucket.id}")
+    return jsonify({'status': 200})
+
+# Alternatively to /influxdb_add_bucket above, use the following GET method: 
 @app.route('/influxdb_create_bucket', methods=['GET'])
 def influxdb_create_bucket():
     # Get the Buckets API

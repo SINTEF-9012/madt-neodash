@@ -1,5 +1,5 @@
 {
-  "title": "UC3",
+  "title": "UC4",
   "version": "2.2",
   "settings": {
     "pagenumber": 0,
@@ -19,9 +19,9 @@
       "reports": [
         {
           "title": "Card: Static Data Loading",
-          "query": "MATCH (n:STATICDATA) WHERE id(n) = $main_selected_node AND n.uc = 3 RETURN n",
-          "width": 1,
-          "height": 5,
+          "query": "MATCH (n:STATICDATA) WHERE id(n) = $main_selected_node AND n.uc = 4 RETURN n",
+          "width": 3,
+          "height": 3,
           "x": 0,
           "y": 0,
           "type": "staticdata",
@@ -29,11 +29,22 @@
           "settings": {}
         },
         {
+          "title": "Card: Event Report",
+          "query": "MATCH (n) WHERE n.uc = 4 RETURN n UNION RETURN null AS n LIMIT 1",
+          "width": 3,
+          "height": 3,
+          "x": 0,
+          "y": 3,
+          "type": "event",
+          "selection": {},
+          "settings": {}
+        },
+        {
           "title": "Knowledge Graph",
-          "query": "MATCH (n)-[e]->(m) WHERE n.uc = 3 RETURN n,e,m LIMIT 50",
+          "query": "MATCH (n)-[e]->(m) WHERE n.uc = 4 RETURN n,e,m LIMIT 1000 UNION MATCH (n) WHERE n.uc = 4 AND NOT (n)--() RETURN n, null AS e, null AS m LIMIT 1000",
           "width": 8,
-          "height": 5,
-          "x": 2,
+          "height": 6,
+          "x": 3,
           "y": 0,
           "type": "graph",
           "selection": {
@@ -47,7 +58,7 @@
         },
         {
           "title": "Card: Graph Design",
-          "query": "MATCH (n) WHERE n.uc = 3 RETURN n UNION RETURN null AS n LIMIT 1",
+          "query": "MATCH (n) WHERE n.uc = 4 RETURN n UNION RETURN null AS n LIMIT 1",
           "width": 5,
           "height": 5,
           "x": 0,
@@ -58,7 +69,7 @@
         },
         {
           "title": "Card: Data Analysis Assistant",
-          "query": "MATCH (n) WHERE n.uc = 3 RETURN n UNION RETURN null AS n LIMIT 1",
+          "query": "MATCH (n) WHERE n.uc = 4 RETURN n UNION RETURN null AS n LIMIT 1",
           "width": 5,
           "height": 5,
           "x": 5,

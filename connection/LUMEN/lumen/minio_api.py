@@ -89,6 +89,25 @@ def minio_list_objects():
     print(object_list)
     return jsonify({'objects': object_list})
 
+@app.route('/minio_add_bucket', methods=['POST'])
+def minio_add_bucket():
+    print(f"[minio_api.py] Received request to add new bucket in MinIO.")
+    # Extract JSON data from the request body
+    data = request.get_json()
+    # Get the bucket name from the JSON payload; adjust key if needed (here expecting { bucket: uid })
+    bucket_name = data.get('bucket') if data else None
+    if not bucket_name:
+        return jsonify({"error": "Bucket name is missing in the request."}), 400
+    try:
+        # Assume create_bucket is a function defined to create the bucket in Minio
+        create_bucket(bucket_name=bucket_name)
+        print(f"[minio_api.py] Bucket {bucket_name} created.")
+        return jsonify({"message": f"Bucket {bucket_name} created."}), 200
+    except Exception as e:
+        print(f"[minio_api.py] Error creating bucket {bucket_name}: {e}")
+        return jsonify({"error": str(e)}), 500
+    
+# Alternatively to /minio_add_bucket above, use the following GET method: 
 @app.route('/minio_create_bucket', methods=['GET'])
 def minio_create_bucket():
     bucket_name = request.args.get('bucket_name')  

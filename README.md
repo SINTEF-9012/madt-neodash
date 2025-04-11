@@ -62,6 +62,7 @@ To run services, navigate to the `connection/api` and run:
 
 ```
 docker run -p 4999:4999 -p 5000:5000 -p 5001:5001 -p 5002:5002 -p 5003:5003 -v ${PWD}/temp:/usr/api/temp -v ${PWD}/downloads:/usr/api/downloads --network=sindit_network -it api
+
 ```
 
 For integration purposes, topology topic in connection/api/kafka_config must be updated with correct UC ID. 
@@ -80,7 +81,7 @@ Log in with user name and password (detailed in docker compose file).
 Open the dashboard in browser: [http://localhost:3000](http://localhost:3000), choose "New Dashboard". 
 Log in with user name and password (detailed in docker compose file).
 
-**Create database**: If the database is empty, you can load one by opening Neo4j Browser at [http://localhost:7474](http:localhost:7474). Copy the content from `samples/<latest-date-sample>.cypher` and past it into the query box of the Neo4j browser, then execute the query. The name/type of the PCAP file needs to correspond to the endpoint/type properties of the static node. 
+**Create database**: If the database is empty, you can load one by opening Neo4j Browser at [http://localhost:7474](http:localhost:7474). Copy the content from a `.cypher` file and paste it into the query box of the Neo4j browser, then execute the query. You can also generate the graph by creating nodes and relationships via the dashboard solution. 
 
 **Load dashboard**: To load a dashboard at [http://localhost:3000](http://localhost:3000), press load dashboard button in left side panel. Choose "Select from file", and choose a sample dashboard (e.g. `samples/dashboard-<latest-date>.json`).
 

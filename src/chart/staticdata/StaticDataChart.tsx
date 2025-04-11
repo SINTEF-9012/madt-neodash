@@ -15,13 +15,6 @@ const StaticDataChart = (props: ChartProps) => {
   const bucket = node.properties['bucket']; // Obs! Instead of endpoint
   const node_name = node.properties['name'];
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  // Properties to load to Neo4J:
-  //const [url, setUrl] = useState('');
-  //const [file_name, setFilename] = useState('');
-  //const [add_date, setAddDate] = useState('');
-  //const [data_format, setFormat] = useState('');
-  //const [data_type, setType] = useState('');
-
 
   const handleDownload = () => {
     // Trigger the download function in `minio_api.py`
