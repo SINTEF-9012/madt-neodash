@@ -155,8 +155,7 @@ def influxdb_create_bucket():
     print(f"[influxdb_api.py] Bucket {bucket.name} created with ID: {bucket.id}")
     return jsonify({'status': 200})
 
-# UNCOMMENT FOR KAFKA INTEGRATION:
-'''
+# UNCOMMENT ALL BELOW FOR KAFKA INTEGRATION
 def check_and_create_bucket(bucket_id):
     buckets_api = client.buckets_api()
     bucket_list = buckets_api.find_buckets().buckets
@@ -167,23 +166,36 @@ def check_and_create_bucket(bucket_id):
 
 def dynamic_data_parser(data, point, parent_key=''):
     for key, value in data.items():
-        compound_key = f"{parent_key}.{key}" if parent_key else key  # Create a compound key for nested data
+        compound_key = f"{parent_key}.{key}" if parent_key else key
         if isinstance(value, dict):
-            # Recursive call to handle nested dictionary
             dynamic_data_parser(value, point, compound_key)
         elif isinstance(value, list):
-            # Convert list to string or handle as a list of values
-            if all(isinstance(item, (str, int, float)) for item in value):  # Simple list
-                point.field(compound_key, ','.join(map(str, value)))
+            if all(isinstance(item, (str, int, float, bool)) for item in value):
+                processed_items = []
+                for item in value:
+                    if type(item) is int:  # convert only if type is exactly int
+                        processed_items.append(float(item))
+                    else:
+                        processed_items.append(item)
+                # Join the items into a comma-separated string.
+                point.field(compound_key, ','.join(map(str, processed_items)))
             else:
-                # For more complex data structures, you might need custom handling
-                continue
+                # If list contains complex items, store the JSON string.
+                point.field(compound_key, json.dumps(value))
         else:
-            # Assign as a field or a tag based on your criteria
-            if isinstance(value, str) and len(value) < 50:  # Example tag criteria
+            # Convert ints (where type is exactly int) to float.
+            if type(value) is int:
+                value = float(value)
+            # Decide whether to add the value as a tag or a field.
+            if isinstance(value, str) and len(value) < 50:
                 point.tag(compound_key, value)
-            elif isinstance(value, (int, float, str)):  # General field handling
+            elif isinstance(value, (float, bool)):
                 point.field(compound_key, value)
+            elif isinstance(value, str):
+                point.field(compound_key, value)
+            else:
+                point.field(compound_key, str(value))
+
 
 def influxdb_upload_message(message, uid, topic):
     check_and_create_bucket(uid)
@@ -226,12 +238,12 @@ def influxdb_realtime_upload(topic, uid):
     finally:
         consumer.close()
         print(f'[influxdb_api.py] Consumer closed for topic {topic}.')
-'''
+
 
 if __name__ == '__main__':
     # UNCOMMENT FOR KAFKA INTEGRATION:
-    # topic_uid_dict = json.loads(config_kafka['kafka']['topic_mapping'])
-    # for topic, uid_list in topic_uid_dict.items():
+    #topic_uid_dict = json.loads(config_kafka['kafka']['topic_mapping'])
+    #for topic, uid_list in topic_uid_dict.items():
     #    for uid in uid_list:
     #        listener_thread = Thread(target=influxdb_realtime_upload, args=(topic,uid,))
     #        print(f'[influxdb_api.py] New listener starting for topic {topic}...')

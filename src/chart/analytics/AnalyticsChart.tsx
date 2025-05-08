@@ -125,6 +125,8 @@ const AnalyticsChart = (props: ChartProps) => {
           boxSizing: 'border-box',
           fontSize: '16px',
           whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          height: 'auto',
         }}
       >
         {resultText || 'No result yet. Please provide a task and click "Solve".'}

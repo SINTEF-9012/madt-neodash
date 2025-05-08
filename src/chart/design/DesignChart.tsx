@@ -5,7 +5,7 @@ import { ChartProps } from '../Chart';
 const DesignChart = (props: ChartProps) => {
   const { records } = props;
   // Extract nodes
-  const validTypes = ['ASSET', 'RISK', 'ATTACK', 'EVENT'];
+  const validTypes = ['ASSET', 'RISK', 'ATTACK', 'EVENT', 'CONSEQUENCE'];
 
   const filteredNodes = records
     .map((record: any) => record._fields?.[0])
@@ -149,6 +149,7 @@ const DesignChart = (props: ChartProps) => {
             <option value="RISK">RISK</option>
             <option value="ATTACK">ATTACK</option>
             <option value="EVENT">EVENT</option>
+            <option value="CONSEQUENCE">CONSEQUENCE</option>
           </select>
         </div>
   
@@ -313,11 +314,15 @@ const DesignChart = (props: ChartProps) => {
             >
               <option value="">Select Target Node</option>
               {filteredNodes
-                .filter((node: any) => node.labels.includes('ASSET'))
-                .map((node: any) => (
-                    <option key={node.properties.uid} value={node.properties.uid}>
-                    {node.properties.name} ({node.labels[0]}, {node.properties.uid.slice(0, 6)}…)
-                    </option>
+              .filter((node: any) => 
+                node.labels.includes('ASSET') || 
+                node.labels.includes('EVENT') || 
+                node.labels.includes('CONSEQUENCE')
+              )
+              .map((node: any) => (
+                <option key={node.properties.uid} value={node.properties.uid}>
+                  {node.properties.name} ({node.labels[0]}, {node.properties.uid.slice(0, 6)}…)
+                </option>
                 ))}
             </select>
           </div>

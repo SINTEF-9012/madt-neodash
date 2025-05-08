@@ -233,6 +233,7 @@ def neo4j_graph(uc):
 def neo4j_listen_for_events(topic):
     # Fetch current UC:
     uc = int(topic[2]) # Fetch UC number
+    # uc = 4 # TODO REMOVE Test purposes
     # Listen to kafka topic continuously
     consumer = KafkaConsumer(topic,
         bootstrap_servers=[config_kafka.get('kafka', 'bootstrap_servers')],
@@ -253,21 +254,22 @@ def neo4j_listen_for_events(topic):
             properties  = parse_alarm_properties(message_content) 
             # New EVENT with the properties fetched from alarm. Related to source ip asset
             query = """
-            MERGE (asset:ASSET {ip: $src_ip, uc: $uc})
+            MERGE (asset:ASSET {ip: $dst_ip, uc: $uc})
             CREATE (event:EVENT $props)
             SET event.uc = $uc
+            SET event.uid = apoc.create.uuid()
             CREATE (event)-[:EventOf]->(asset)
             RETURN event, asset
             """
-            # Use the src_ip from the parsed properties; if absent, the query might fail.
-            src_ip = properties.get("src_ip")
+            # Use the dst_ip from the parsed properties; if absent, the query might fail.
+            dst_ip = properties.get("dst_ip")
             
             # Log the parameters that will be passed for debugging.
-            print(f"[neo4j_api.py] Creating EVENT node with properties: {properties} and linking to ASSET node with ip: {src_ip}")
+            print(f"[neo4j_api.py] Creating EVENT node with properties: {properties} and linking to ASSET node with ip: {dst_ip}")
             
             # Run the query with parameters using the Neo4j driver.
             with driver.session() as session:
-                session.run(query, src_ip=src_ip, props=properties,  uc=uc)
+                session.run(query, dst_ip=dst_ip, props=properties,  uc=uc)
     except KeyboardInterrupt:
         print("[neo4j_api.py] Consumer stopped from keyboard.")
     except Exception as e:
@@ -481,7 +483,7 @@ def neo4j_add_node():
             bucket: n.uid,
             uc: n.uc
         }})
-        MERGE (sd)-[:DataOf]->(n)
+        MERGE (sd)-[:StaticDataOf]->(n)
         """
     query += "\nRETURN n.uid"
     try:
@@ -511,15 +513,26 @@ def neo4j_add_relation():
                 "MATCH (n {uid: $uid}) RETURN labels(n) AS labels",
                 {"uid": source_uid}
             ).single()["labels"]
+            source_labels_target = session.run(
+                "MATCH (n {uid: $uid}) RETURN labels(n) AS labels",
+                {"uid": target_uid}
+            ).single()["labels"]
             # Step 2: Determine relationship type
             if "ASSET" in source_labels:
                 relation_type = "ConnectTo"
             elif "EVENT" in source_labels:
                 relation_type = "EventOf"
             elif "RISK" in source_labels:
-                relation_type = "RiskOf"
+                if "CONSEQUENCE" in source_labels_target:
+                    relation_type = "LeadsTo"
+                elif "EVENT" in source_labels_target:
+                    relation_type = "RiskOf"
+                else:
+                    relation_type = "RiskOf"
             elif "ATTACK" in source_labels:
                 relation_type = "AttackOn"
+            elif "CONSEQUENCE" in source_labels:
+                relation_type = "Affects"
             else:
                 return jsonify({"error": "Unsupported source node type"}), 400
             # Step 3: Create relationship in Cypher
@@ -574,12 +587,12 @@ def neo4j_events():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    print(f'[neo4j_api.py] Listener starting...')
     # UNCOMMENT FOR KAFKA INTEGRATION FOR MADT4BC TOPIC:
-    madt_topic = config_kafka.get('kafka', 'madt_topic')
-    listener_thread_graph = Thread(target=neo4j_listen_for_changes, args=(madt_topic,))
-    listener_thread_graph.start()
-    events_topic = config_kafka.get('kafka', 'event_topic')
-    listener_thread_events = Thread(target=neo4j_listen_for_events, args=(events_topic,))
-    listener_thread_events.start()
+    # print(f'[neo4j_api.py] Listener starting...')  
+    # madt_topic = config_kafka.get('kafka', 'madt_topic')
+    # listener_thread_graph = Thread(target=neo4j_listen_for_changes, args=(madt_topic,))
+    # listener_thread_graph.start()
+    # events_topic = config_kafka.get('kafka', 'events_topic')
+    # listener_thread_events = Thread(target=neo4j_listen_for_events, args=(events_topic,))
+    # listener_thread_events.start()
     app.run(host="0.0.0.0", port=5001)
