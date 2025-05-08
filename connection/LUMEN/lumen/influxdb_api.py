@@ -12,8 +12,8 @@ import configparser
 import time
 
 # Load configurations from .ini files
-config_kafka = configparser.ConfigParser()
-config_kafka.read('kafka_config.ini')
+#config_kafka = configparser.ConfigParser()
+#config_kafka.read('kafka_config.ini')
 
 config_influxdb = configparser.ConfigParser()
 config_influxdb.read('influxdb_config.ini')
@@ -156,6 +156,7 @@ def influxdb_create_bucket():
     return jsonify({'status': 200})
 
 # UNCOMMENT ALL BELOW FOR KAFKA INTEGRATION
+"""
 def check_and_create_bucket(bucket_id):
     buckets_api = client.buckets_api()
     bucket_list = buckets_api.find_buckets().buckets
@@ -238,7 +239,7 @@ def influxdb_realtime_upload(topic, uid):
     finally:
         consumer.close()
         print(f'[influxdb_api.py] Consumer closed for topic {topic}.')
-
+"""
 
 if __name__ == '__main__':
     # UNCOMMENT FOR KAFKA INTEGRATION:
