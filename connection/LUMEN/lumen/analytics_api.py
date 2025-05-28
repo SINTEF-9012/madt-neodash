@@ -24,14 +24,14 @@ config.read('openaiapi.ini')
 openai_api_key = config.get('openai', 'OPENAI_API_KEY')
 
 openai_llm_config = {
-    "config_list": [{"model": "gpt-4o-mini", "api_key": openai_api_key, "api_rate_limit": 10.0, "tags": ["gpt4omini", "openai"]}],
+    "config_list": [{"model": "gpt-4o-mini", "api_key": openai_api_key, "api_rate_limit": 10.0, "tags": ["gpt4o-mini", "openai"]}],
     "temperature": 0.1,
-    "max_tokens": 2500
+    "max_tokens": 8000
 }
 
 ollama_llm_config = {"config_list": [
   {
-    "model": "gemma2",
+    "model": "gemma3",
     "base_url": "http://llm:11434/v1",
     "api_key": "ollama",
   },
@@ -92,21 +92,22 @@ def analytics_generate_and_run_code():
     )
 
     # LUMEN EXPERIMENT VERSION:
-    """
+    # """
     graph_explorer = ConversableAgent(
         "GraphExplorer",
-        system_message = "Your name is GraphOperator. You can answer questions by querying a Neo4j Graph Database. Generate Cypher queries and use the registered tool to execute the query.\
+        system_message = "Your name is GraphOperator. You can answer questions by querying a Neo4j Graph Database. Generate Cypher queries and use the registered tool to execute the query. If needed, refine your previous query.\
         The graph follows a strict schema:  \
         (1) ASSET node has properties: name, layer, ip, description and uid. An ASSET has different relations to another ASSET (e.g. ConnectTo, Manages, Secures, etc.). \
-        (2) DATASOURCE node has properties: name, type (type of data), format (data format), bucket, endpoint and uid. To get bucket, use the relation: (ds:DATASOURCE)-[:DataSourceOf]->(a:ASSET).\
-        (3) STATICDATA node has properties: name, type (type of data), format (data format), bucket, file_name, add_date, and uid. To get bucket, use the relation: (sd:STATICDATA)-[:StaticDataOf]->(a:ASSET).\
+        (2) DATASOURCE node has properties: name, type (e.g. cicflowmeter, ocppflowmeter, metricbeat, etc.), format (timeseries), bucket, endpoint and uid. To get bucket, use the relation: (ds:DATASOURCE)-[:DataSourceOf]->(a:ASSET).\
+        (3) STATICDATA node has properties: name, type (e.g. pcap, json, csv, etc.), format (pcap, json, csv, etc.), bucket, file_name, add_date, and uid. To get bucket, use the relation: (sd:STATICDATA)-[:StaticDataOf]->(a:ASSET).\
         Important: Use (sd:STATICDATA)-[:StaticDataOf]->(a:ASSET) and (ds:DATASOURCE)-[:DataSourceOf]->(a:ASSET) relationships to obtain bucket IDs. Use the correct direction of the relation! Only one statement per query is allowed.",
         llm_config = openai_llm_config,
         code_execution_config=False,
         human_input_mode= "ALWAYS" if DEBUG_MODE else "NEVER"
     )
-    """
+    # """
     # KUBERNETES DEPLOYMENT VERSION:
+    """
     graph_explorer = ConversableAgent(
         "GraphExplorer",
         system_message = "Your name is GraphOperator. You can answer questions by querying a Neo4j Graph Database. Generate Cypher queries and use the registered tool to execute the query.\
@@ -122,6 +123,7 @@ def analytics_generate_and_run_code():
         code_execution_config=False,
         human_input_mode= "ALWAYS" if DEBUG_MODE else "NEVER"
     )
+    """
 
     register_function(
         query_neo4j,
@@ -157,8 +159,8 @@ def analytics_generate_and_run_code():
         # Check the response status and content
         if response.ok:
             json_response = response.json()
-            file_path = json_response['file_path']
             # output = json_response['output']
+            file_path = json_response['filename']
             return file_path
         else:
             print("Error:", response.status_code, response.text)
@@ -190,8 +192,8 @@ def analytics_generate_and_run_code():
 
     filepath_exporter = ConversableAgent(
         "FilePathExporter",
-        system_message = "Your name is FilePathDriver. Given a task and a bucket ID, you save the data locally and return the file path for relevant data files using the registered tools. If no bucket ID is provided, write TERMINATE. "
-        "You can obtain both MinIO (static data) and InfluxDB (time-series data) file paths through two registered functions by creating the necessary function argument(s).",
+        system_message = "Your name is FilePathDriver. Given a task and a bucket ID, you save the data locally and return the file path for relevant data files using the registered tools. If what you require is not provided, explain your problem. "
+        "You can obtain both MinIO (static data) and InfluxDB (time-series data) file paths through two registered functions by creating the necessary function argument(s). If you retrieve time-series, mention that it will be saved as a CSV file with columns: timestamp, measurement, field and value.",
         llm_config = openai_llm_config,
         code_execution_config=False,
         human_input_mode= "ALWAYS" if DEBUG_MODE else "NEVER"
@@ -234,10 +236,10 @@ def analytics_generate_and_run_code():
 
     task_planner = ConversableAgent(
         "TaskPlanner",
-        system_message = "Your name is TaskPlanner. You create plans for specialized agents that you will be introduced to. If your plan was not succesful, construct a new one. If your plan is succesful, write TERMINATE."
-        "Given a task, break it down into sub-tasks, each of which should be performed by one agent. Not all agents need to participate, it depends on the task."
+        system_message = "Your name is TaskPlanner. You create plans for specialized agents that you will be introduced to. If not succesful, construct a new plan for the agents that failed. If your plan is succesful, write TERMINATE. If asked for a choice or a reminder, choose wisely and provide all the information needed."
+        "Given a task, break it down into sub-tasks, each of which should be performed by one agent. Not all agents need to participate, it depends on the task. "
         "[CONTEXT] A knowledge graph represents a network topology of assets (ASSET nodes). Agents can access data through the bucket property of data nodes (STATICDATA and DATASOURCE nodes holding information about data stored in MinIO and InfluxDB)."
-        "If the task asks to analyze specific data, file paths to locally downloaded data files can be used when generating code that reads the file and analyzes the content. Some tasks only require information of the knowledge graph. ",
+        "If the task asks to analyze specific data, file paths to locally downloaded data files can be used when generating code that reads the file and analyzes the content. If the requested data is time-series, the file-path agent needs a time range too. Some tasks only require information of the knowledge graph. ",
         llm_config = openai_llm_config,
         code_execution_config=False,  # Turn off code execution for this agent.
         human_input_mode = "ALWAYS"  if DEBUG_MODE else "NEVER"
@@ -247,13 +249,13 @@ def analytics_generate_and_run_code():
     code_generator = ConversableAgent("CodeGenerator",
         llm_config=openai_llm_config,
         system_message = '''
-            Your name is CodeGenerator. You generate pure Python code, with no explanations. You might also be asked to revise your previous code. \
-            You will get a task, and a path to a file (of a specific type), or a revision request. If any of these are not provided, write TERMINATE. \
-            Generate one function called solve_task(file_path) that tries to solve the entire or at least part of the task. \
-            If the task is abstract or ambiguous, you may create multiple conditional branches to cover the possible variations. \
+            Your name is CodeGenerator. You generate Python code, with no explanations. You may be asked to revise previous code later. \
+            You will get a task or revision request, and a path to a file (of a specific type). If not provided, only explain what's missing. \
+            Otherwise, generate one function called solve_task(file_path) that tries to solve the task. If the file content is unknown, investigate it first. \
+            If the task is abstract or ambiguous, you may create multiple conditional branches to cover the possible variations. If task is impossible, write TERMINATE instead of the code. \
             At the end, include one line of code to call solve_task function. Do not use the __main__ segment! \
-            At the end, always print the result. \
-            Assume these dependencies/packages are already installed: numpy, scapy, pandas, matplotlib, dpkt.  \
+            At the end, always print the result as a presentation to the user. Before printing, make sure the result is short (under 1K tokens) to avoid rate limit errors.  \
+            Assume these dependencies/packages are already installed: numpy, scapy, pandas, matplotlib, dpkt (preferred for PCAP analysis).  \
         ''',
         code_execution_config=False,  
         human_input_mode="ALWAYS" if DEBUG_MODE else "NEVER",  
@@ -265,7 +267,7 @@ def analytics_generate_and_run_code():
         llm_config=openai_llm_config,
         system_message = "Your name is OutputRepeater. Given a task and an answer, respond following one of the two alternatives:\
                     1. If the answer satisfies the task, repeat the exact answer, and write TERMINATE at the end. Do not add any explanations unless the answer is purely numerical! \
-                    2. If the answer contains an error, does not make sense, or is plainly wrong, repeat the answer and explain the problem. ",
+                    2. If the answer contains an error, does not make sense, or is plainly wrong, repeat the answer and explain the problem.",
         code_execution_config=False, 
         human_input_mode="ALWAYS" if DEBUG_MODE else "NEVER",  
     )
@@ -284,7 +286,7 @@ def analytics_generate_and_run_code():
     )
 
     # Comment out descriptions to use system message instead.
-    task_planner.description = "Provides a plan/sub-tasks for agents, given a task. This agent should be the first to engage."
+    task_planner.description = "Provides a plan/sub-tasks for agents, given a task. This agent should be the first to engage and can be re-called to improve previous plans or give more context."
     graph_operator.description = "Has access to knowledge graph. Generates CYPHER queries and executes them. Can search for bucket IDs. "
     filepath_driver.description = "Saves data files locally and provides their file path, given a task and a bucket ID."
     code_generator.description = "Generates Python code, given a task and a file path."
@@ -293,16 +295,16 @@ def analytics_generate_and_run_code():
     # human_proxy.description = "Provides additional human input, in case the task is missing information or unclear."
    
     allowed_transitions = {
-        task_planner: [graph_operator, code_generator, task_planner, output_repeater],
-        graph_operator: [filepath_driver, output_repeater, graph_operator],
-        filepath_driver: [code_generator, output_repeater],
+        task_planner: [graph_operator, code_generator, task_planner, output_repeater, filepath_driver],
+        graph_operator: [filepath_driver, output_repeater, graph_operator, task_planner],
+        filepath_driver: [code_generator, output_repeater, task_planner],
         code_generator: [code_executor,],
         code_executor: [output_repeater,],
         output_repeater: [task_planner, code_generator],
         # human_proxy: [task_planner, human_proxy],
     }
 
-    group_chat = GroupChat(agents=[task_planner, graph_operator, filepath_driver, code_generator, code_executor, output_repeater], messages=[], send_introductions = True, allowed_or_disallowed_speaker_transitions=allowed_transitions, speaker_transitions_type="allowed")
+    group_chat = GroupChat(agents=[task_planner, graph_operator, filepath_driver, code_generator, code_executor, output_repeater], messages=[], send_introductions = True, allowed_or_disallowed_speaker_transitions=allowed_transitions, speaker_transitions_type="allowed", max_round = 25)
 
     group_chat_manager = GroupChatManager(
         groupchat=group_chat,
@@ -331,6 +333,7 @@ def analytics_generate_and_run_code():
     generator_loops = 0
     explorer_loops = 0
     task_planner_loops = 0
+    driver_loops = 0
     full_response = ""
     for message in group_chat.messages:
         msg_count = msg_count + 1
@@ -353,20 +356,22 @@ def analytics_generate_and_run_code():
         elif message['name'] == "CodeExecutor":
             full_response = full_response + " \n --------NEXT AGENT:--------- " + message['name'] + message['content']
         elif message['name'] == "FilePathDriver":
+            driver_loops = driver_loops + 1
             full_response = full_response + " \n --------NEXT AGENT:--------- " + message['name'] + message['content']
         # print("Msg "+ str(msg_count) + " Name: " + message['name'])
     # Remove TERMINATE from answer before returning and saving:
     result = result.replace("TERMINATE", "")
     response_content = {'result': result}
     active_agents = set(all_agents)
-    generator_loops = generator_loops if generator_loops >= 2 else 0 # If code generator is only used once --> no loops
-    explorer_loops = explorer_loops if explorer_loops >= 2 else 0 # If code generator is only used once --> no loops
-    task_planner_loops = task_planner_loops if task_planner_loops >= 2 else 0
-    usage_summary = gather_usage_summary([task_planner, graph_operator, filepath_driver, code_generator, code_executor, output_repeater])
+    generator_loops = generator_loops if generator_loops >= 2 else 0 # If only used once --> no loops
+    explorer_loops = explorer_loops if explorer_loops >= 2 else 0 # If only used once --> no loops
+    filepathdriver_loops = driver_loops if driver_loops >= 2 else 0 # If used once --> no loops
+    task_planner_loops = task_planner_loops if task_planner_loops >= 2 else 0 # If used once --> no loops
+    usage_summary = gather_usage_summary([human_proxy, task_planner, graph_operator, filepath_driver, code_generator, code_executor, output_repeater])
     ### LUMEN EXPERIMENTS: task - final answer - full answer -  KG (YES/NO) - ACTIVE AGENTS - NUMBER ACTIVE AGENTS - EXEC TIME - LOOPS COUNT for GENERATOR/EXPLORER/TASKPLANNER - TOTAL NUM MESSAGES EXCHANGED - COST  -
-    print("[analytics_api.py] Record:")
-    print([task, result, full_response, kg, active_agents, len(active_agents), exec_time, explorer_loops, generator_loops, task_planner_loops, msg_count, usage_summary["usage_including_cached_inference"]])
-    # record_task_result(task, result, full_response, kg, active_agents, len(active_agents), exec_time, explorer_loops, generator_loops, task_planner_loops, msg_count, usage_summary["usage_including_cached_inference"])
+    print("[analytics_api.py] Recording:")
+    print([task, result, kg, active_agents, len(active_agents), exec_time, explorer_loops, generator_loops, task_planner_loops,filepathdriver_loops, msg_count, usage_summary["usage_including_cached_inference"]])
+    record_task_result(task, result, kg, active_agents, len(active_agents), exec_time, explorer_loops, generator_loops, task_planner_loops, filepathdriver_loops, msg_count, usage_summary["usage_including_cached_inference"])
     # Return the output as JSON:
     return jsonify(response_content)  
 
@@ -381,7 +386,7 @@ def get_unique_filename(base_path):
             return new_path
         counter += 1
 
-def record_task_result(task, answer, full_response, kg, active_agents, num_active_agents, exec_time, explorer_loops, generator_loops, task_planner_loops, num_messages, cost):
+def record_task_result(task, answer, kg, active_agents, num_active_agents, exec_time, explorer_loops, generator_loops, task_planner_loops, filepathdriver_loops, num_messages, cost):
     filename = './downloads/lumen_report.csv'
     unique_filename = get_unique_filename(filename)
     file_exists = os.path.isfile(unique_filename)
@@ -390,9 +395,9 @@ def record_task_result(task, answer, full_response, kg, active_agents, num_activ
         writer = csv.writer(file, quotechar='"', quoting=csv.QUOTE_MINIMAL)
         # Automatically creates file with headers if it doesn't exist
         if not file_exists:
-            writer.writerow(['Task', 'Answer', 'CompleteChat', 'UseKG', 'ActiveAgents', 'NumActiveAgents', 'ExecutionTime', 'GraphExplorerLoops', 'CodeGeneratorLoops', 'TaskPlannerLoops','NumMessageExchanges','Cost', "ManualLabel"])
+            writer.writerow(['Task', 'Answer', 'UseKG', 'ActiveAgents', 'NumActiveAgents', 'ExecutionTime', 'GraphExplorerLoops', 'CodeGeneratorLoops', 'TaskPlannerLoops', "FilePathDriverLoops",'NumMessageExchanges','Cost', "SubjSummary"])
         # Append data
-        writer.writerow([task, answer, full_response, kg, active_agents, num_active_agents, exec_time, explorer_loops, generator_loops, task_planner_loops, num_messages, cost, "OK"])
+        writer.writerow([task, answer, kg, active_agents, num_active_agents, exec_time, explorer_loops, generator_loops, task_planner_loops, filepathdriver_loops, num_messages, cost, "\"OK\""])
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5002)

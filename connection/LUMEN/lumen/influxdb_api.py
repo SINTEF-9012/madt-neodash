@@ -12,8 +12,8 @@ import configparser
 import time
 
 # Load configurations from .ini files
-#config_kafka = configparser.ConfigParser()
-#config_kafka.read('kafka_config.ini')
+config_kafka = configparser.ConfigParser()
+config_kafka.read('kafka_config.ini')
 
 config_influxdb = configparser.ConfigParser()
 config_influxdb.read('influxdb_config.ini')
@@ -83,7 +83,7 @@ def influxdb_download_data():
 
     # Open a file to write and save locally
     with open(file_path, mode='w', newline='') as file:
-        fieldnames = ['time', 'measurement', 'field', 'value']
+        fieldnames = ['timestamp', 'measurement', 'field', 'value']
         writer = csv.DictWriter(file, fieldnames=fieldnames)
 
         # Write the header
@@ -93,7 +93,7 @@ def influxdb_download_data():
         for table in result:
             for record in table.records:
                 writer.writerow({
-                    "time": record.get_time(),
+                    "timestamp": record.get_time(),
                     "measurement": record.get_measurement(),
                     "field": record.get_field(),
                     "value": record.get_value(),
@@ -104,7 +104,7 @@ def influxdb_download_data():
     for table in result:
         for record in table.records:
             output.append({
-                "time": record.get_time(),
+                "timestamp": record.get_time(),
                 "measurement": record.get_measurement(),
                 "field": record.get_field(),
                 "value": record.get_value(),
@@ -115,6 +115,7 @@ def influxdb_download_data():
     print("[influxdb_api.py] InfluxDB query request processed for asset with id " + bucket_id)
     return jsonify({
         'file_path': file_path,
+        'filename' : os.path.basename(file_path),
         'output': output})
 
 @app.route('/influxdb_add_bucket', methods=['POST'])
@@ -156,7 +157,7 @@ def influxdb_create_bucket():
     return jsonify({'status': 200})
 
 # UNCOMMENT ALL BELOW FOR KAFKA INTEGRATION
-"""
+
 def check_and_create_bucket(bucket_id):
     buckets_api = client.buckets_api()
     bucket_list = buckets_api.find_buckets().buckets
@@ -239,7 +240,7 @@ def influxdb_realtime_upload(topic, uid):
     finally:
         consumer.close()
         print(f'[influxdb_api.py] Consumer closed for topic {topic}.')
-"""
+
 
 if __name__ == '__main__':
     # UNCOMMENT FOR KAFKA INTEGRATION:

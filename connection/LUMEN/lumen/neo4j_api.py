@@ -233,7 +233,7 @@ def neo4j_graph(uc):
 def neo4j_listen_for_events(topic):
     # Fetch current UC:
     uc = int(topic[2]) # Fetch UC number
-    # uc = 4 # TODO REMOVE Test purposes
+    # uc = 1 # TODO REMOVE Test purposes
     # Listen to kafka topic continuously
     consumer = KafkaConsumer(topic,
         bootstrap_servers=[config_kafka.get('kafka', 'bootstrap_servers')],
@@ -253,7 +253,7 @@ def neo4j_listen_for_events(topic):
             print(f'[neo4j_api.py] Received message: {message_content} from partition: {message.partition}, offset: {message.offset}')
             properties  = parse_alarm_properties(message_content) 
             # New EVENT with the properties fetched from alarm. Related to source ip asset
-            query = """
+            query_event = """
             MERGE (asset:ASSET {ip: $dst_ip, uc: $uc})
             CREATE (event:EVENT $props)
             SET event.uc = $uc
@@ -267,9 +267,24 @@ def neo4j_listen_for_events(topic):
             # Log the parameters that will be passed for debugging.
             print(f"[neo4j_api.py] Creating EVENT node with properties: {properties} and linking to ASSET node with ip: {dst_ip}")
             
+             # New ATTACKER with the properties fetched from alarm. Related to source ip asset
+            query_attack = """
+            MERGE (asset:ASSET {ip: $dst_ip, uc: $uc})
+            CREATE (attk:ATTACK $props)
+            SET attk.uc = $uc
+            SET attk.ip = $src_ip
+            SET attk.uid = apoc.create.uuid()
+            CREATE (attk)-[:Attacks]->(asset)
+            RETURN attk, asset
+            """
+            # Use the dst_ip from the parsed properties; if absent, the query might fail.
+            src_ip = properties.get("src_ip")
+             # Log the parameters that will be passed for debugging.
+            print(f"[neo4j_api.py] Creating ATTACKER node with properties: {properties} and linking to ASSET node with ip: {src_ip}")
             # Run the query with parameters using the Neo4j driver.
             with driver.session() as session:
-                session.run(query, dst_ip=dst_ip, props=properties,  uc=uc)
+                session.run(query_event, dst_ip=dst_ip, props=properties,  uc=uc)
+                session.run(query_attack, dst_ip = dst_ip, src_ip=src_ip, props=properties,  uc=uc)
     except KeyboardInterrupt:
         print("[neo4j_api.py] Consumer stopped from keyboard.")
     except Exception as e:
@@ -279,7 +294,7 @@ def neo4j_listen_for_events(topic):
 
 def parse_alarm_properties(message_content):
     """
-    Parses a STIX alert message and extracts properties to create a new EVENT node in Neo4j.
+    Parses a STIX alert message and extracts properties.
     
     The function expects a STIX bundle JSON message, with objects that may include:
       - An "identity" object (for source identity, e.g. 'MMT-PROBE'),
@@ -289,61 +304,64 @@ def parse_alarm_properties(message_content):
     
     Returns a dictionary with extracted properties.
     """
-    
     try:
         data = json.loads(message_content)
     except json.JSONDecodeError as e:
         print(f"JSON decode error: {e}")
         return {}
-    
+
     properties = {}
     objects = data.get("objects", [])
-    
-    # Iterate over all objects in the bundle to extract properties
+
+    # First, locate the observed-data object to get IP references
+    observed = next(
+        (o for o in objects if o.get("type") == "observed-data"),
+        None
+    )
+    ip_refs = []
+    if observed:
+        ip_refs = observed.get("object_refs", [])
+        # Extract generic observed-data fields
+        properties.update({
+            "observed_data_id": observed.get("id"),
+            "first_observed": observed.get("first_observed"),
+            "last_observed": observed.get("last_observed"),
+            "number_observed": observed.get("number_observed")
+        })
+        # Description extension
+        obs_ext = observed.get("extensions", {}).get("x-observed-data-ext", {})
+        if obs_ext:
+            properties["description"] = obs_ext.get("description")
+
+    # Iterate over all objects to extract other properties
     for obj in objects:
         obj_type = obj.get("type", "").lower()
-        
+
         if obj_type == "identity":
-            # Extracting properties from the identity object
             properties["identity_name"] = obj.get("name")
-        
-        elif obj_type == "observed-data":
-            # Extract properties relevant for the event
-            properties["observed_data_id"] = obj.get("id")
-            properties["first_observed"] = obj.get("first_observed")
-            properties["last_observed"] = obj.get("last_observed")
-            properties["number_observed"] = obj.get("number_observed")
-            
-            # Look in the extensions for an event description (if provided)
-            obs_ext = obj.get("extensions", {}).get("x-observed-data-ext", {})
-            if obs_ext:
-                properties["description"] = obs_ext.get("description")
-        
+
         elif obj_type == "ipv4-addr":
-            # You might have two ipv4-addr objects.
-            # Determine if it represents source or destination based on the id field pattern.
-            addr_id = obj.get("id", "")
-            ip_value = obj.get("value")
-            if "src_asset_uuid" in addr_id:
-                properties["src_ip"] = ip_value
-            elif "dst_asset_uuid" in addr_id:
-                properties["dst_ip"] = ip_value
-        
+            obj_id = obj.get("id")
+            ip_val = obj.get("value")
+            # Assign based on position in observed-data.object_refs
+            if len(ip_refs) >= 1 and obj_id == ip_refs[0]:
+                properties["src_ip"] = ip_val
+            elif len(ip_refs) >= 2 and obj_id == ip_refs[1]:
+                properties["dst_ip"] = ip_val
+
         elif obj_type == "x-attack-type":
-            # Extract information about the type of attack.
-            properties["attack_type"] = obj.get("user_id")  
+            properties["attack_type"] = obj.get("user_id")
             properties["attack_created"] = obj.get("created")
             properties["attack_modified"] = obj.get("modified")
-            
-            # Look for external references (e.g., TTP identifiers)
-            external_refs = obj.get("external_references", [])
-            if external_refs and isinstance(external_refs, list):
-                properties["ttp_id"] = external_refs[0].get("external_id")
-            
-            # Extract simulation information if available
+            # External references (e.g., TTP)
+            ext_refs = obj.get("external_references", [])
+            if ext_refs and isinstance(ext_refs, list):
+                properties["ttp_id"] = ext_refs[0].get("external_id")
+            # Simulation extension
             sim_ext = obj.get("extensions", {}).get("x-simulation-ext", {})
             if sim_ext:
                 properties["simulation"] = sim_ext.get("simulation")
+
     return properties
 
 def neo4j_listen_for_changes(topic):
@@ -588,7 +606,7 @@ def neo4j_events():
 
 if __name__ == '__main__':
     # UNCOMMENT FOR KAFKA INTEGRATION FOR MADT4BC TOPIC:
-    # print(f'[neo4j_api.py] Listener starting...')  
+    # print(f'[neo4j_api.py] Listeners starting...')  
     # madt_topic = config_kafka.get('kafka', 'madt_topic')
     # listener_thread_graph = Thread(target=neo4j_listen_for_changes, args=(madt_topic,))
     # listener_thread_graph.start()
