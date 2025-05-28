@@ -1,0 +1,8 @@
+I would like you to generate a infrastructure containing the following assets:
+
+Two EVCSs or Electric Vehicle Charging Stations with IP addresses 192.168.21.233 and 192.168.21.225 respectively. 
+One FPR (Power Relay) with IP address 192.168.21.228, which safeguards against grid anomalies such as overcurrent or overvoltage events on the previous two EVCSs. 
+One switch with IP address 192.168.21.215, to which both the EVCSs connect.
+A CSMS, or Charging Station Management System, with IP address 192.168.21.70, described as a cloud-based platform for electric vehicle charging station management.
+One more switch with IP address 192.168.21.128 which the CSMS is connected to.
+One router with IP address 192.168.21.120, to which the switch close to the EVCSs is connected to. This will also connect to and secure the switch closest to the CSMS. The router provides Internet access and functions as a VPN gateway and firewall.

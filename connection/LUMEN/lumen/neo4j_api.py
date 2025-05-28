@@ -230,6 +230,8 @@ def neo4j_graph(uc):
     finally:
         driver.close()
 
+# UNCOMMENT ALL BELOW FOR KAFKA INTEGRATION
+'''
 def neo4j_listen_for_events(topic):
     # Fetch current UC:
     uc = int(topic[2]) # Fetch UC number
@@ -364,6 +366,7 @@ def parse_alarm_properties(message_content):
 
     return properties
 
+
 def neo4j_listen_for_changes(topic):
     global graph_data
     # Fetch current UC:
@@ -388,7 +391,7 @@ def neo4j_listen_for_changes(topic):
     # Checks updates indefinitely
     time.sleep(3600) # Check each hour for updates
     neo4j_listen_for_changes(topic)
-
+'''
 
 @app.route('/neo4j_create_attack', methods=['POST'])
 def neo4j_create_attack():
