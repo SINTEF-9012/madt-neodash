@@ -37,14 +37,8 @@ gemma_llm_config = {"config_list": [
   },
 ] }
 
-deepseek_llm_config = {"config_list": [
-  {
-    "model": "deepseek-r1:70b",
-    "base_url": "http://llm:11434/v1",
-    "api_key": "ollama",
-  },
-] }
-
+# All agents get following config. Change LLM config 
+current_llm_config = openai_llm_config
 
 # Decide if there is human interaction or not
 DEBUG_MODE = False
@@ -110,7 +104,7 @@ def analytics_generate_and_run_code():
         (2) DATASOURCE node has properties: name, type (e.g. cicflowmeter, ocppflowmeter, metricbeat, etc.), format (timeseries), bucket, endpoint and uid. To get bucket, use the relation: (ds:DATASOURCE)-[:DataSourceOf]->(a:ASSET).\
         (3) STATICDATA node has properties: name, type (e.g. pcap, json, csv, etc.), format (pcap, json, csv, etc.), bucket, file_name, add_date, and uid. To get bucket, use the relation: (sd:STATICDATA)-[:StaticDataOf]->(a:ASSET).\
         Important: Use (sd:STATICDATA)-[:StaticDataOf]->(a:ASSET) and (ds:DATASOURCE)-[:DataSourceOf]->(a:ASSET) relationships to obtain bucket IDs. Use the correct direction of the relation! Only one statement per query is allowed.",
-        llm_config = deepseek_llm_config,
+        llm_config = current_llm_config,
         code_execution_config=False,
         human_input_mode= "ALWAYS" if DEBUG_MODE else "NEVER"
     )
@@ -128,7 +122,7 @@ def analytics_generate_and_run_code():
         (5) RISK node has properties: name, likelihood and consequence and uid. It is connected to an EVENT via relation: (r:RISK)-[:RiskOf]->(a:EVENT).\
         (6) CONSEQUENCE node has properties: name, description, createdAt, and uid. Relations to other nodes:(r:RISK)-[:LeadsTo]->(c:CONSEQUENCE), (c:CONSEQUENCE)-[:Affects]->(a:ASSET). \
         Important: Use (sd:STATICDATA)-[:StaticDataOf]->(a:ASSET) and (ds:DATASOURCE)-[:DataSourceOf]->(a:ASSET) relationships to obtain bucket IDs. Use the correct direction of the relation! Only one statement per query is allowed.",
-        llm_config = openai_llm_config,
+        llm_config = current_llm_config,
         code_execution_config=False,
         human_input_mode= "ALWAYS" if DEBUG_MODE else "NEVER"
     )
@@ -144,8 +138,8 @@ def analytics_generate_and_run_code():
     nested_chats_graph = [
         {
             "recipient": graph_explorer,
-            "max_turns": 2,
-            "summary_method": "last_msg"
+            "max_turns": 3,
+            "summary_method": "reflection_with_llm"
         }
     ]
 
@@ -203,7 +197,7 @@ def analytics_generate_and_run_code():
         "FilePathExporter",
         system_message = "Your name is FilePathDriver. Given a task and a bucket ID, you save the data locally and return the file path for relevant data files using the registered tools. If what you require is not provided, explain your problem. "
         "You can obtain both MinIO (static data) and InfluxDB (time-series data) file paths through two registered functions by creating the necessary function argument(s). If you retrieve time-series, mention that it will be saved as a CSV file with columns: timestamp, measurement, field and value.",
-        llm_config = deepseek_llm_config,
+        llm_config = current_llm_config,
         code_execution_config=False,
         human_input_mode= "ALWAYS" if DEBUG_MODE else "NEVER"
     )
@@ -245,18 +239,18 @@ def analytics_generate_and_run_code():
 
     task_planner = ConversableAgent(
         "TaskPlanner",
-        system_message = "Your name is TaskPlanner. You create plans for specialized agents that you will be introduced to. If not succesful, construct a new plan for the agents that failed. If your plan is succesful, write TERMINATE. If asked for a choice or a reminder, choose wisely and provide all the information needed."
-        "Given a task, break it down into sub-tasks, each of which should be performed by one agent. Not all agents need to participate, it depends on the task. "
+        system_message = "Your name is TaskPlanner. You create detailed plans for specialized agents that you will be introduced to. If not succesful, construct a new plan for the agents that failed. If your plan is succesful, write TERMINATE. If asked for a choice or a reminder, choose wisely and provide all the information needed."
+        "Given a task, break it down into sub-tasks, each of which should be performed by one agent. Not all agents need to participate, it depends on the task."
         "[CONTEXT] A knowledge graph represents a network topology of assets (ASSET nodes). Agents can access data through the bucket property of data nodes (STATICDATA and DATASOURCE nodes holding information about data stored in MinIO and InfluxDB)."
         "If the task asks to analyze specific data, file paths to locally downloaded data files can be used when generating code that reads the file and analyzes the content. If the requested data is time-series, the file-path agent needs a time range too. Some tasks only require information of the knowledge graph. ",
-        llm_config = deepseek_llm_config,
+        llm_config = current_llm_config,
         code_execution_config=False,  # Turn off code execution for this agent.
         human_input_mode = "ALWAYS"  if DEBUG_MODE else "NEVER"
     )
 
 
     code_generator = ConversableAgent("CodeGenerator",
-        llm_config=deepseek_llm_config,
+        llm_config=current_llm_config,
         system_message = '''
             Your name is CodeGenerator. You generate Python code, with no explanations. You may be asked to revise previous code later. \
             You will get a task or revision request, and a path to a file (of a specific type). If not provided, only explain what's missing. \
@@ -273,7 +267,7 @@ def analytics_generate_and_run_code():
 
     # Create an evaluator:
     output_repeater = ConversableAgent("OutputRepeater",
-        llm_config=deepseek_llm_config,
+        llm_config=current_llm_config,
         system_message = "Your name is OutputRepeater. Given a task and an answer, respond following one of the two alternatives:\
                     1. If the answer satisfies the task, repeat the exact answer, and write TERMINATE at the end. Do not add any explanations unless the answer is purely numerical! \
                     2. If the answer contains an error, does not make sense, or is plainly wrong, repeat the answer and explain the problem.",
@@ -317,7 +311,7 @@ def analytics_generate_and_run_code():
 
     group_chat_manager = GroupChatManager(
         groupchat=group_chat,
-        llm_config=deepseek_llm_config,
+        llm_config=current_llm_config,
         is_termination_msg=lambda msg: "TERMINATE" in msg["content"],
     )
 
@@ -377,7 +371,7 @@ def analytics_generate_and_run_code():
     filepathdriver_loops = driver_loops if driver_loops >= 2 else 0 # If used once --> no loops
     task_planner_loops = task_planner_loops if task_planner_loops >= 2 else 0 # If used once --> no loops
     usage_summary = gather_usage_summary([human_proxy, task_planner, graph_operator, filepath_driver, code_generator, code_executor, output_repeater])
-    ### LUMEN EXPERIMENTS: task - final answer - full answer -  KG (YES/NO) - ACTIVE AGENTS - NUMBER ACTIVE AGENTS - EXEC TIME - LOOPS COUNT for GENERATOR/EXPLORER/TASKPLANNER - TOTAL NUM MESSAGES EXCHANGED - COST  -
+    ### LUMEN EXPERIMENTS: task - final answer -  KG (YES/NO) - ACTIVE AGENTS - NUMBER ACTIVE AGENTS - EXEC TIME - LOOPS COUNT for GENERATOR/EXPLORER/TASKPLANNER - TOTAL NUM MESSAGES EXCHANGED - COST  -
     print("[analytics_api.py] Recording:")
     print([task, result, kg, active_agents, len(active_agents), exec_time, explorer_loops, generator_loops, task_planner_loops,filepathdriver_loops, msg_count, usage_summary["usage_including_cached_inference"]])
     record_task_result(task, result, kg, active_agents, len(active_agents), exec_time, explorer_loops, generator_loops, task_planner_loops, filepathdriver_loops, msg_count, usage_summary["usage_including_cached_inference"])
