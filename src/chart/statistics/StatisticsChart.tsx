@@ -1,34 +1,39 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
+import axios from 'axios';
 import { ChartProps } from '../Chart';
-import { generateCypher } from '../../openai/TextToCypher';
-import axios from 'axios'; // HTTP client
-
-/**
- * Renders Neo4j records as their JSON representation.
- */
 
 const StatisticsTable = ({ data }) => {
   if (!data) {
-    return <p>No data available.</p>;
+    return <p style={{ fontSize: '16px', marginTop: '20px' }}>No data available.</p>;
   }
 
-  // Extracting keys (packet_size, inter_arrival) and stats (count, mean, etc.)
   const keys = Object.keys(data);
   const stats = keys.length > 0 ? Object.keys(data[keys[0]]) : [];
 
   return (
-    <table>
+    <table style={{
+      width: '100%',
+      borderCollapse: 'collapse',
+      fontSize: '16px',
+      marginTop: '20px'
+    }}>
       <thead>
-        <tr>
-          <th>Statistic</th>
-          {stats.map(stat => <th key={stat}>{stat}</th>)}
+        <tr style={{ backgroundColor: '#f2f2f2' }}>
+          <th style={{ border: '1px solid #ccc', padding: '10px' }}>Statistic</th>
+          {stats.map(stat => (
+            <th key={stat} style={{ border: '1px solid #ccc', padding: '10px' }}>{stat}</th>
+          ))}
         </tr>
       </thead>
       <tbody>
-        {keys.map(key => (
-          <tr key={key}>
-            <td>{key}</td>
-            {stats.map(stat => <td key={`${key}-${stat}`}>{data[key][stat]}</td>)}
+        {keys.map((key, index) => (
+          <tr key={key} style={{ backgroundColor: index % 2 === 0 ? '#fff' : '#f9f9f9' }}>
+            <td style={{ border: '1px solid #ccc', padding: '10px', fontWeight: 'bold' }}>{key}</td>
+            {stats.map(stat => (
+              <td key={`${key}-${stat}`} style={{ border: '1px solid #ccc', padding: '10px' }}>
+                {data[key][stat]}
+              </td>
+            ))}
           </tr>
         ))}
       </tbody>
@@ -36,48 +41,92 @@ const StatisticsTable = ({ data }) => {
   );
 };
 
-
 const StatisticsChart = (props: ChartProps) => {
-  //const { generated, setGenerated } = useState(0);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [statistics, setStatistics] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
 
-  const { records, settings, getGlobalParameter } = props;
-  const node = records && records[0] && records[0]._fields && records[0]._fields[0] ? records[0]._fields[0] : {};
-  const [statistics, setStatistics] = useState('');
-  const endpoint = node.properties['endpoint']; // Obs! Used as bucket name
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] || null;
+    setSelectedFile(file);
+    setStatistics(null);
+  };
 
-  const fetchStatistics = async () => {
+  const handleUpload = async () => {
+    if (!selectedFile) {
+      alert("Please select a PCAP file before computing statistics.");
+      return;
+    }
+
+    setLoading(true);
+
     try {
-      const urlResponse = await axios.get(`http://localhost:5000/minio_get_last_url`, {
-        params: { endpoint: endpoint }
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+
+      const response = await axios.post('http://localhost:5003/get_statistics', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
-      const url = urlResponse.data.url;
-      console.log('[StatisticsChart.tsx] Fetched URL:', url);
-      const statResponse = await axios.get(`http://localhost:5003/get_statistics`, {
-        params: { url: url }
-      });
-      console.log(statResponse.data);
-      setStatistics(statResponse.data); // Assuming response data is the url
-      if (statResponse.status === 200){
-        console.log('[StatisticsChart.tsx] Fetched statistics.');
+
+      if (response.status === 200) {
+        setStatistics(response.data);
       } else {
-        // TODO: If result is not fetched succesfully, alert user:
-        alert("[StatisticsChart.tsx] Error encountered in fetching statistics.");
+        alert("Failed to compute statistics.");
       }
     } catch (error) {
-    console.error('[CountChart.tsx] Failed fetching result from static node:', error);
+      console.error('[StatisticsChart.tsx] Error uploading file:', error);
+      alert("An error occurred while computing statistics.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  useEffect(() => {
-    // Fetch the statistics when the component mounts
-    fetchStatistics();
-  }, [endpoint]);
+  return (
+    <div style={{
+      marginTop: '20px',
+      padding: '20px',
+      fontFamily: 'Arial, sans-serif',
+      textAlign: 'center',
+      backgroundColor: '#f7f9fb',
+      borderRadius: '10px',
+      boxShadow: '0 2px 6px rgba(0,0,0,0.1)'
+    }}>
+      <h2 style={{ fontSize: '24px', marginBottom: '10px' }}>PCAP Statistics</h2>
 
-  return ( 
-    <div style={{ marginTop: '0px', height: '100%', textAlign: 'center'}}>
-		<div style={{ overflowX: 'auto' }}>
-			<StatisticsTable data={statistics} />
-		</div>
+      <input
+        type="file"
+        accept=".pcap,.pcapng"
+        onChange={handleFileChange}
+        style={{
+          marginBottom: '10px',
+          fontSize: '16px',
+          padding: '6px',
+          borderRadius: '5px',
+          border: '1px solid #ccc'
+        }}
+      />
+      <br />
+
+      <button
+        onClick={handleUpload}
+        disabled={loading}
+        style={{
+          fontSize: '16px',
+          padding: '10px 20px',
+          borderRadius: '6px',
+          border: 'none',
+          backgroundColor: loading ? '#aaa' : '#007bff',
+          color: 'white',
+          cursor: loading ? 'not-allowed' : 'pointer',
+          transition: 'background-color 0.3s ease'
+        }}
+      >
+        {loading ? 'Computing...' : 'Compute Statistics'}
+      </button>
+
+      <div style={{ marginTop: '30px', overflowX: 'auto' }}>
+        <StatisticsTable data={statistics} />
+      </div>
     </div>
   );
 };

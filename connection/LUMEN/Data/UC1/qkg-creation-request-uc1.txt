@@ -1,5 +1,0 @@
-Generate a knowledge graph containing the following assets and relationships:
-Assets:
-Two EVCSs (Electric Vehicle Charging Stations) with IP addresses 192.168.21.233 and 192.168.21.225 respectively. One FPR (Feeder Protection Relay) with IP address 192.168.21.228, which safeguards against grid anomalies such as overcurrent or overvoltage events. One switch with IP address 192.168.21.215. A CSMS, or Charging Station Management System, with IP address 192.168.21.70, described as a cloud-based platform for electric vehicle charging station management. A second switch with IP address 192.168.21.128. One router with IP address 192.168.21.120, which provides Internet access and functions as a VPN gateway and firewall.
-Relationships:
-FPR connects to both EVCSs. Both EVCSs connect to the first switch. This first switch connects to the router. The router connects to and secures the second switch. The CSMS connects to the second switch.  

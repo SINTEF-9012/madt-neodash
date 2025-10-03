@@ -25,8 +25,13 @@ openai_api_key = config.get('openai', 'OPENAI_API_KEY')
 
 openai_llm_config = {
     "config_list": [{"model": "gpt-4o", "api_key": openai_api_key, "api_rate_limit": 10.0, "tags": ["gpt4o", "openai"]}],
-    "temperature": 0.1,
-    "max_tokens": 8000
+    "max_tokens": 10000
+}
+
+openai_llm_config_2 = {
+    "config_list": [{"model": "gpt-4.1", "api_key": openai_api_key, "api_rate_limit": 10.0, "tags": ["gpt4.1", "openai"]}],
+    "temperature": 1,
+    "max_tokens": 10000
 }
 
 gemma_llm_config = {"config_list": [
@@ -37,8 +42,16 @@ gemma_llm_config = {"config_list": [
   },
 ] }
 
+ollama_llm_config = {"config_list": [
+  {
+    "model": "llama3.1:8b",
+    "base_url": "http://llm:11434/v1",
+    "api_key": "ollama",
+  },
+] }
+
 # All agents get following config. Change LLM config 
-current_llm_config = openai_llm_config
+current_llm_config = ollama_llm_config
 
 # Decide if there is human interaction or not
 DEBUG_MODE = False
@@ -95,12 +108,12 @@ def analytics_generate_and_run_code():
     )
 
     # LUMEN EXPERIMENT VERSION:
-    # """
+    """
     graph_explorer = ConversableAgent(
         "GraphExplorer",
         system_message = "Your name is GraphOperator. You can answer questions by querying a Neo4j Graph Database. Generate Cypher queries and use the registered tool to execute the query. If needed, refine your previous query.\
         The graph follows a strict schema:  \
-        (1) ASSET node has properties: name, layer, ip, description and uid. An ASSET has different relations to another ASSET (e.g. ConnectTo, Manages, Secures, etc.). \
+        (1) ASSET node has properties: name, layer, ip, description, criticality and uid. An ASSET has different relations to another ASSET (e.g. ConnectTo, Manages, Secures, etc.). \
         (2) DATASOURCE node has properties: name, type (e.g. cicflowmeter, ocppflowmeter, metricbeat, etc.), format (timeseries), bucket, endpoint and uid. To get bucket, use the relation: (ds:DATASOURCE)-[:DataSourceOf]->(a:ASSET).\
         (3) STATICDATA node has properties: name, type (e.g. pcap, json, csv, etc.), format (pcap, json, csv, etc.), bucket, file_name, add_date, and uid. To get bucket, use the relation: (sd:STATICDATA)-[:StaticDataOf]->(a:ASSET).\
         Important: Use (sd:STATICDATA)-[:StaticDataOf]->(a:ASSET) and (ds:DATASOURCE)-[:DataSourceOf]->(a:ASSET) relationships to obtain bucket IDs. Use the correct direction of the relation! Only one statement per query is allowed.",
@@ -108,25 +121,80 @@ def analytics_generate_and_run_code():
         code_execution_config=False,
         human_input_mode= "ALWAYS" if DEBUG_MODE else "NEVER"
     )
-    # """
+    """
+    
     # KUBERNETES DEPLOYMENT VERSION:
     """
     graph_explorer = ConversableAgent(
         "GraphExplorer",
         system_message = "Your name is GraphOperator. You can answer questions by querying a Neo4j Graph Database. Generate Cypher queries and use the registered tool to execute the query.\
         The graph follows a strict schema:  \
-        (1) ASSET node has properties: name, layer, ip, description and uid. An ASSET has different relations to another ASSET (e.g. ConnectTo, Manages, Secures, etc.). \
-        (2) DATASOURCE node has properties: name, type (type of data), format (data format), bucket, endpoint and uid. To get bucket, use the relation: (ds:DATASOURCE)-[:DataSourceOf]->(a:ASSET).\
-        (3) STATICDATA node has properties: name, type (type of data), format (data format), bucket, file_name, add_date, and uid. To get bucket, use the relation: (sd:STATICDATA)-[:StaticDataOf]->(a:ASSET). \
-        (4) EVENT node has properties: attack_type, src_ip, dst_ip, simulation, attack_created, number_observed, description and uid. Use the relation: (e:EVENT)-[:EventOf]->(a:ASSET). \
-        (5) RISK node has properties: name, likelihood and consequence and uid. It is connected to an EVENT via relation: (r:RISK)-[:RiskOf]->(a:EVENT).\
-        (6) CONSEQUENCE node has properties: name, description, createdAt, and uid. Relations to other nodes:(r:RISK)-[:LeadsTo]->(c:CONSEQUENCE), (c:CONSEQUENCE)-[:Affects]->(a:ASSET). \
+        (1) ASSET node with properties: name, layer, ip, description, criticality and uid. An ASSET has different relations to another ASSET (e.g. ConnectTo, Manages, Secures, etc.). \
+        (2) DATASOURCE node with properties: name, type (type of data), format (data format), bucket, endpoint and uid. To get bucket, use the relation: (ds:DATASOURCE)-[:DataSourceOf]->(a:ASSET).\
+        (3) STATICDATA node with properties: name, type (type of data), format (data format), bucket, file_name, add_date, and uid. To get bucket, use the relation: (sd:STATICDATA)-[:StaticDataOf]->(a:ASSET). \
+        (4) EVENT node with properties: attack_type, src_ip, dst_ip, simulation, attack_created, number_observed, description and uid. Use the relation: (e:EVENT)-[:EventOf]->(a:ASSET). \
+        (5) RISK node with properties: name, likelihood and uid. It is connected to an EVENT via relation: (r:RISK)-[:RiskOf]->(a:EVENT).\
+        (6) CONSEQUENCE node with properties: name, description, createdAt, and uid. Relations to other nodes:(r:RISK)-[:LeadsTo]->(c:CONSEQUENCE), (c:CONSEQUENCE)-[:Affects]->(a:ASSET). \
         Important: Use (sd:STATICDATA)-[:StaticDataOf]->(a:ASSET) and (ds:DATASOURCE)-[:DataSourceOf]->(a:ASSET) relationships to obtain bucket IDs. Use the correct direction of the relation! Only one statement per query is allowed.",
         llm_config = current_llm_config,
         code_execution_config=False,
         human_input_mode= "ALWAYS" if DEBUG_MODE else "NEVER"
     )
     """
+    DB_SCHEMA = """
+            Node Types:
+            [ASSET] with properties:
+                - name: str            # Name of the ASSET
+                - layer: str           # Layer in the architecture
+                - ip: str | List[str]  # IP address(es)
+                - description: str     # Asset description
+                - criticality: str     # Criticality level (low, medium, high)
+                - uid: str             # Unique identifier
+
+            [DATASOURCE] with properties:
+                - name: str            # Name of the data source
+                - type: str            # Type of data
+                - format: str          # Data format
+                - bucket: str          # Bucket ID
+                - endpoint: str        # Source kafka topic
+                - uid: str             # Unique identifier
+
+            [STATICDATA] with properties:
+                - name: str            # Name
+                - type: str            # Type of data
+                - format: str          # Data format
+                - bucket: str          # Bucket ID
+                - file_name: str       # File name
+                - add_date: str        # Date added
+                - uid: str             # Unique identifier
+
+            [EVENT] with properties:
+                - attack_type: str     # Type of attack
+                - src_ip: str          # Source IP
+                - dst_ip: str          # Destination IP
+                - simulation: bool     # Whether event is from simulation
+                - attack_created: str  # Timestamp of attack creation
+                - number_observed: int # Number of times observed
+                - description: str     # Description of the event
+                - uid: str             # Unique identifier
+
+            Relationship Types:
+            (a1:ASSET)-[r:]->(a2:ASSET)
+            (ds:DATASOURCE)-[:DataSourceOf]->(a:ASSET)
+            (sd:STATICDATA)-[:StaticDataOf]->(a:ASSET)
+            (e:EVENT)-[:EventOf]->(a:ASSET)
+        """
+    
+    # UPDATED KUBERNETES DEPLOYMENT VERSION:: 
+    graph_explorer = ConversableAgent(
+        "GraphExplorer",
+        system_message = """Your name is GraphOperator. You answer user requests by querying a Neo4j database. Generate Cypher queries and use the registered tool to execute the query. 
+                          Rule: You MUST follow the schema: {DB_SCHEMA}.   
+                          Important: Use the relationships in the schema to obtain bucket IDs. """,
+        llm_config = current_llm_config,
+        code_execution_config=False,
+        human_input_mode= "ALWAYS" if DEBUG_MODE else "NEVER"
+    )
 
     register_function(
         query_neo4j,
@@ -138,7 +206,7 @@ def analytics_generate_and_run_code():
     nested_chats_graph = [
         {
             "recipient": graph_explorer,
-            "max_turns": 3,
+            "max_turns": 2,
             "summary_method": "reflection_with_llm"
         }
     ]
@@ -329,6 +397,7 @@ def analytics_generate_and_run_code():
     # print(f"Execution Time: {execution_time:.4f} seconds")
 
     # Extract result:
+    """"""
     result = ""
     kg = False
     all_agents = []

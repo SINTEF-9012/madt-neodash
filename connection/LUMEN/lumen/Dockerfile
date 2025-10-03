@@ -18,6 +18,7 @@ EXPOSE 4999
 EXPOSE 5000
 EXPOSE 5001
 EXPOSE 5002
+EXPOSE 5003
 
 # Give execute permission to run.sh
 RUN chmod +x run_lumen.sh

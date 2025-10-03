@@ -14,6 +14,7 @@ const EventChart = (props: ChartProps) => {
     total: number;
     assets: Array<{
       name: string;    // The asset identifier/name.
+      criticality: string; // Criticality of asset
       events: number;  // The number of events associated with the asset.
     }>;
   }
@@ -23,16 +24,27 @@ const EventChart = (props: ChartProps) => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Determines the background color based on the number of events.
-  const getColorForCount = (count: number): string => {
-    if (count === 1) {
-      return 'yellow';
-    } else if (count === 2) {
-      return 'orange';
-    } else if (count >= 3) {
+  // Determines the background color based on the number of events and criticality level.
+  const getColorForCount = (count: number, criticality: string): string => {
+    if (criticality === 'high') {
+      // Any number of events is red if critical
       return 'red';
+    } else if (criticality === 'low') {
+      // Always return yellow for low criticality, regardless of count
+      return 'yellow';
+    } else if (criticality === 'medium') {
+      // Use the original color logic for medium criticality
+      if (count === 1) {
+        return 'yellow';
+      } else if (count === 2) {
+        return 'orange';
+      } else if (count >= 3) {
+        return 'red';
+      }
+    } else {
+      // Fallback/default
+      return 'lightgrey';
     }
-    return 'lightgrey';
   };
 
   // Fetch data from the Flask API endpoint and update state.
@@ -43,6 +55,7 @@ const EventChart = (props: ChartProps) => {
       // Adjust the endpoint URL to point to the correct host and port.
       const response = await axios.get<EventReport>('http://localhost:5001/neo4j_events');
       setReportData(response.data);
+      // console.log(response.data)
     } catch (err) {
       console.error('Error fetching event report:', err);
       setError('Failed to fetch data. Please try again later.');
@@ -74,13 +87,14 @@ const EventChart = (props: ChartProps) => {
               <li
                 key={index}
                 style={{
-                  backgroundColor: getColorForCount(asset.events),
+                  backgroundColor: getColorForCount(asset.events, asset.criticality),
                   padding: '0.5rem',
                   marginBottom: '0.5rem',
                   borderRadius: '4px'
                 }}
               >
                 <strong>Asset:</strong> {asset.name} &nbsp;|&nbsp;
+                <strong>Criticality:</strong> {asset.criticality} &nbsp;|&nbsp;
                 <strong>Events:</strong> {asset.events}
               </li>
             ))}

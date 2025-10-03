@@ -1,5 +1,5 @@
 {
-    "title": "UC",
+    "title": "Critical Infrastructure",
     "version": "2.2",
     "settings": {
       "pagenumber": 0,
@@ -18,24 +18,24 @@
         "title": "Digital Twin",
         "reports": [
           {
-            "title": "Card: Static Data Loading",
-            "query": "MATCH (n:STATICDATA) WHERE id(n) = $main_selected_node RETURN n",
-            "width": 3,
-            "height": 3,
-            "x": 0,
-            "y": 0,
-            "type": "staticdata",
-            "selection": {},
-            "settings": {}
-          },
-          {
             "title": "Card: Event Report",
             "query": "MATCH (n) RETURN n UNION RETURN null AS n LIMIT 1",
             "width": 3,
             "height": 3,
             "x": 0,
-            "y": 3,
+            "y": 0,
             "type": "event",
+            "selection": {},
+            "settings": {}
+          },
+          {
+            "title": "Card: Static Data Loading",
+            "query": "MATCH (n:STATICDATA) WHERE id(n) = $main_selected_node RETURN n",
+            "width": 3,
+            "height": 3,
+            "x": 0,
+            "y": 3,
+            "type": "staticdata",
             "selection": {},
             "settings": {}
           },
@@ -75,6 +75,17 @@
             "x": 5,
             "y": 5,
             "type": "analytics",
+            "selection": {},
+            "settings": {}
+          },
+          {
+            "title": "Card: PCAP Statistics",
+            "query": "MATCH (n) RETURN n UNION RETURN null AS n LIMIT 1",
+            "width": 10,
+            "height": 3,
+            "x": 0,
+            "y": 7,
+            "type": "statistics",
             "selection": {},
             "settings": {}
           }

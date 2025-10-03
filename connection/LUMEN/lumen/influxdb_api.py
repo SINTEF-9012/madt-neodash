@@ -156,8 +156,7 @@ def influxdb_create_bucket():
     print(f"[influxdb_api.py] Bucket {bucket.name} created with ID: {bucket.id}")
     return jsonify({'status': 200})
 
-# UNCOMMENT ALL BELOW FOR KAFKA INTEGRATION
-'''
+
 def check_and_create_bucket(bucket_id):
     buckets_api = client.buckets_api()
     bucket_list = buckets_api.find_buckets().buckets
@@ -198,36 +197,157 @@ def dynamic_data_parser(data, point, parent_key=''):
             else:
                 point.field(compound_key, str(value))
 
+def metricbeat_data_parser(data_dict, point):
+    """
+    Parses one line of Metricbeat output and returns a Point for InfluxDB.
+    """
+    timestamp = data_dict.get("@timestamp")
+    # Set timestamp if available
+    if timestamp:
+        point.time(datetime.fromisoformat(timestamp.replace("Z", "+00:00")))
+    # Flatten and populate point with tags/fields
+    dynamic_data_parser(data_dict, point)
+
+def ocpp_data_parser(data_dict, point):
+    """
+    Parses an OCPP flowmeter JSON line into an InfluxDB Point.
+    """
+    # Extract and validate timestamp
+    ts_str = data_dict.get("Timestamp")
+    if ts_str:
+        timestamp = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+    else:
+        raise ValueError("[influxdb_api.py] Missing Timestamp in OCPP data")
+    point.time(timestamp)
+    # Add identifying tags
+    point.tag("flow_id", data_dict.get("flow_id", "unknown"))
+    point.tag("src_ip", data_dict.get("src_ip", "unknown"))
+    point.tag("dst_ip", data_dict.get("dst_ip", "unknown"))
+    point.tag("label", data_dict.get("label", "unknown"))
+    # Add all numeric fields as InfluxDB fields
+    for key, value in data_dict.items():
+        if key in {"flow_id", "Timestamp", "src_ip", "dst_ip", "label"}:
+            continue  # already handled
+        if isinstance(value, (int, float)):
+            point.field(key, float(value))  # int → float for InfluxDB
+
+def cic_data_parser(data_dict, point):
+    """
+    Parses one line of CICFlowMeter JSON and returns an InfluxDB Point.
+    """
+    # Ensure timestamp is available
+    ts_str = data_dict.get("Timestamp")
+    if not ts_str:
+        raise ValueError("[influxdb_api.py] Missing Timestamp in CICFlowMeter data")
+    timestamp = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+
+    # Start building point
+    point.time(timestamp)
+
+    # Add tags
+    point.tag("flow_id", data_dict.get("Flow ID", "unknown"))
+    point.tag("src_ip", data_dict.get("Src IP", "unknown"))
+    point.tag("dst_ip", data_dict.get("Dst IP", "unknown"))
+    point.tag("src_port", str(data_dict.get("Src Port", "0")))
+    point.tag("dst_port", str(data_dict.get("Dst Port", "0")))
+    point.tag("label", data_dict.get("Label", "unknown"))
+
+    # Add fields (numeric values only)
+    for key, value in data_dict.items():
+        if key in {"Flow ID", "Src IP", "Dst IP", "Src Port", "Dst Port", "Timestamp", "Label"}:
+            continue  # already handled
+        if isinstance(value, (int, float)):
+            point.field(key, float(value))  # convert int to float
+        elif isinstance(value, str) and len(value) < 50:
+            point.tag(key, value)  # optional: treat short strings as tags
+        else:
+            point.field(key, str(value))  # fallback
+
+def ocpplog_data_parser(data_dict, point):
+    """
+    Parse one log-activity JSON line and return an InfluxDB Point.
+    """
+    # ---------- Timestamp ----------------------------------------------------
+    ts_str = data_dict.get("timestamp")
+    if not ts_str:
+        raise ValueError("[influxdb_api.py] Missing 'timestamp' in log entry")
+    # Permit both “…Z” and plain micro-second ISO strings
+    timestamp = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+    
+    # Start building point
+    point.time(timestamp)
+
+    # Tags for fast filtering
+    point.tag("src_ip", data_dict.get("src_ip", "unknown"))
+    point.tag("dst_ip", data_dict.get("dst_ip", "unknown"))
+
+    # Message handling 
+    msg = data_dict.get("msg")
+
+    # 1) Simple string, e.g. "ping"
+    if isinstance(msg, str):
+        point.tag("msg_type", msg.lower())  # e.g. ping
+        point.field("message", msg)
+
+    # 2) Any list-based message → store whole list as JSON string
+    elif isinstance(msg, list):
+        point.tag("msg_type", "list")
+        point.field("message", json.dumps(msg))
+
+    # 3) Fallback for anything else
+    else:
+        point.tag("msg_type", "unknown")
+        point.field("message", json.dumps(msg))
+
 
 def influxdb_upload_message(message, uid, topic):
-    check_and_create_bucket(uid)
-    data_dict = json.loads(message)
+    # print(f'[influxdb_api.py] Writing message from topic to InfluxDB ...')
+    # If bucket not already present for UID, create in InfluxDB
+    check_and_create_bucket(uid) 
+    # Parse message:
     point = Point(topic)
-    dynamic_data_parser(data_dict, point)
-    # Optionally add a timestamp, here using system time
-    point.time(datetime.now(), WritePrecision.NS)
+    data_dict = json.loads(message)
+    if "metricbeat" in topic:
+        # print("[influxdb_api.py] Writing metricbeat message ...")
+        metricbeat_data_parser(data_dict, point) # Use timestamp within metricbeat
+    elif "ocppflowmeter" in topic:
+        # print("[influxdb_api.py] Writing ocppflowmeter message ...")
+        ocpp_data_parser(data_dict, point) # Use timestamp within flow
+    elif "cicflowmeter" in topic:
+        # print("[influxdb_api.py] Writing cicflowmeter message ...")
+        cic_data_parser(data_dict, point) # Use timestamp within flow
+    elif "logs" in topic:
+        # print("[influxdb_api.py] Writing ocpplog message ...")
+        ocpplog_data_parser(data_dict, point) # Use timestamp within flow
+    else:
+        # print(f"[influxdb_api.py] Writing message to topic: {topic} ...")
+        dynamic_data_parser(data_dict, point)
+        point.time(datetime.now(), WritePrecision.NS) # Add a timestamp, using system time:
+    # Write:
     write_api = client.write_api()
     write_api.write(bucket=uid, record=point)
     write_api.close()
 
 def influxdb_realtime_upload(topic, uid):
     print(f'[influxdb_api.py] Listening on topic {topic} ...')
-    consumer = KafkaConsumer( topic,
+    consumer = KafkaConsumer( topic, 
         bootstrap_servers=[config_kafka.get('kafka', 'bootstrap_servers')], # REALTIME: Add topic too
         security_protocol=config_kafka.get('kafka', 'security_protocol'),
         sasl_mechanism=config_kafka.get('kafka', 'sasl_mechanism'),
         sasl_plain_username=config_kafka.get('kafka', 'sasl_plain_username'),
         sasl_plain_password=config_kafka.get('kafka', 'sasl_plain_password'),
-        auto_offset_reset=config_kafka.get('kafka', 'auto_offset_reset'),  # Start reading at the earliest message
+        auto_offset_reset=config_kafka.get('kafka', 'auto_offset_reset'),  # Start reading at the earliest/latest message
         enable_auto_commit=True,        # REALTIME SET True else False
         value_deserializer=lambda x: x.decode('utf-8')  # Deserialize messages to string
     )
-    #consumer.assign([TopicPartition(topic, 0)])                    # REALTIME --> Comment out this part
-    #consumer.seek_to_end(TopicPartition(topic, 0))                 # REALTIME --> Comment out this part
-    #last_offset = consumer.position(TopicPartition(topic, 0)) - 1  # REALTIME --> Comment out this part
-    #if last_offset >= 0:                                           # REALTIME --> Comment out this part
-    #    consumer.seek(TopicPartition(topic, 0), last_offset)       # REALTIME --> Comment out this part
-    # ...
+    #tp = TopicPartition(topic, 0)            # REALTIME --> Comment out this part
+    #consumer.assign([tp])                    # REALTIME --> Comment out this part
+    #consumer.seek_to_end(tp)                 # REALTIME --> Comment out this part
+    #consumer.poll(timeout_ms=1000)           # Important!
+    #last_offset = consumer.position(tp) - 1  # REALTIME --> Comment out this part
+    #if last_offset >= 0:                     # REALTIME --> Comment out this part
+    #    consumer.seek(tp, last_offset)       # REALTIME --> Comment out this part
+    #   ...
     #else:
     #    print(f'No messages found in topic {topic}.')  # REALTIME --> Comment out this part
     try:
@@ -240,16 +360,30 @@ def influxdb_realtime_upload(topic, uid):
     finally:
         consumer.close()
         print(f'[influxdb_api.py] Consumer closed for topic {topic}.')
-'''
 
 if __name__ == '__main__':
     # UNCOMMENT FOR KAFKA INTEGRATION:
-    #topic_uid_dict = json.loads(config_kafka['kafka']['topic_mapping'])
-    #for topic, uid_list in topic_uid_dict.items():
-    #    for uid in uid_list:
-    #        listener_thread = Thread(target=influxdb_realtime_upload, args=(topic,uid,))
-    #        print(f'[influxdb_api.py] New listener starting for topic {topic}...')
-    #        listener_thread.start()
+    time.sleep(60)  # Sleeps initially to allow mapping process to finish
+    # uc = config_kafka.get('kafka', 'uc')
+    # uc_topic_mapping = "uc" + str(uc) + "_topic_mapping"
+    # topic_uid_dict = json.loads(config_kafka['kafka'][uc_topic_mapping])
+    # Path to topic_mapping.json in Downloads
+    mapping_path = os.path.join("downloads", "topic_mapping.json")
+    # Load the mapping file
+    if os.path.exists(mapping_path):
+        with open(mapping_path, "r") as f:
+            topic_uid_dict = json.load(f)
+    else:
+        print("[neo4j_api.py] Warning: topic_mapping.json not found in downloads.")
+        topic_uid_dict = {}
+    if len(topic_uid_dict.items()) != 0 :
+        for topic, uid_list in topic_uid_dict.items():
+            for uid in uid_list:
+                listener_thread = Thread(target=influxdb_realtime_upload, args=(topic,uid,))
+                print(f'[influxdb_api.py] Listener for data collection starting for topic {topic} ...')
+                listener_thread.start()
+    else:
+        print("[influxdb_api.py] No topic mapping.")
     app.run(host="0.0.0.0", debug=False, port=4999)
     
 

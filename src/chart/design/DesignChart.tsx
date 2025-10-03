@@ -5,7 +5,7 @@ import { ChartProps } from '../Chart';
 const DesignChart = (props: ChartProps) => {
   const { records } = props;
   // Extract nodes
-  const validTypes = ['ASSET', 'RISK', 'ATTACK', 'EVENT', 'CONSEQUENCE'];
+  const validTypes = ['ASSET', 'ATTACKER', 'EVENT', 'CONSEQUENCE', 'THREAT'];
 
   const filteredNodes = records
     .map((record: any) => record._fields?.[0])
@@ -13,20 +13,37 @@ const DesignChart = (props: ChartProps) => {
 
   const [nodeData, setNodeData] = useState({
     name: '',
-    layer: '',
-    description: '',
     type: 'ASSET',
-    usecase: 1,
+    // usecase: 1,
     assetTypes: {
         datasource: false,
         staticdata: false
     },
-    endpoint: '',
-    customProps: [{ key: '', value: '' }]
+    customProps: [{ key: '', value: '' }],
+    endpoint: ''
   });
   const [nodes, setNodes] = useState<any[]>([]);
   const [sourceNode, setSourceNode] = useState('');
   const [targetNode, setTargetNode] = useState('');
+  const [selectedAsset, setSelectedAsset] = useState('');
+
+ const handleStaticData = async () => {
+    try {
+      const postData = {asset_uid: selectedAsset};
+      const postUrl = 'http://localhost:5001/neo4j_add_static_data';
+      const updateResponse = await axios.post(postUrl, postData);
+      const {message, uid } = updateResponse.data;
+      alert(message);
+      //console.log(uid);
+      // If staticdata uid returned, create bucket in minio:
+      if (uid) {
+        await axios.post('http://localhost:5000/minio_add_bucket', { bucket: uid });
+      }
+    } catch (err) {
+      console.error('[DesignChart.tsx] Error creating static data node:', err);
+      alert('Failed to create Static Data node.');
+    }
+  };
 
   const handleConnect = async () => {
     
@@ -92,11 +109,13 @@ const DesignChart = (props: ChartProps) => {
       //console.log(uid);
       // If staticdata is true, create a bucket in Minio with uid as name
       if (staticdata === true) {
+        console.log("Triggered minio bucket adding.")
         await axios.post('http://localhost:5000/minio_add_bucket', { bucket: uid });
       }
   
       // If datasource is true, create a bucket in InfluxDB with uid as name
       if (datasource === true) {
+        console.log("Triggered influxdb bucket adding.")
         await axios.post('http://localhost:4999/influxdb_add_bucket', { bucket: uid });
       }
     } catch (error) {
@@ -111,8 +130,8 @@ const DesignChart = (props: ChartProps) => {
       <div style={{ padding: '20px', border: '1px solid #ccc', borderRadius: '10px', marginBottom: '40px' }}>
         <h2 style={{ color: '#333', marginBottom: '20px' }}>➕ Create New Node</h2>
   
-        {/* Name, Layer, Description, IP */}
-        {['name', 'layer', 'description'].map(field => (
+        {/* Name*/}
+        {['name'].map(field => (
           <div key={field} style={{ marginBottom: '15px' }}>
             <label>{field.charAt(0).toUpperCase() + field.slice(1)}:</label>
             <input
@@ -124,32 +143,16 @@ const DesignChart = (props: ChartProps) => {
             />
           </div>
         ))}
-
-        {/* Use Case Dropdown */}
-        <div style={{ marginBottom: '20px' }}>
-        <label>Use Case:</label>
-        <select
-            name="usecase"
-            value={nodeData.usecase}
-            onChange={handleChange}
-            style={{ width: '100%', padding: '10px' }}
-        >
-            <option value={1}>UC1</option>
-            <option value={2}>UC2</option>
-            <option value={3}>UC3</option>
-            <option value={4}>UC4</option>
-        </select>
-        </div>
   
         {/* Node Type Selection */}
         <div style={{ marginBottom: '20px' }}>
           <label>Node Type:</label>
           <select name="type" value={nodeData.type} onChange={handleChange} style={{ width: '100%', padding: '10px' }}>
             <option value="ASSET">ASSET</option>
-            <option value="RISK">RISK</option>
-            <option value="ATTACK">ATTACK</option>
+            <option value="ATTACKER">ATTACKER</option>
             <option value="EVENT">EVENT</option>
             <option value="CONSEQUENCE">CONSEQUENCE</option>
+            <option value="THREAT">THREAT</option>
           </select>
         </div>
   
@@ -328,8 +331,66 @@ const DesignChart = (props: ChartProps) => {
           </div>
         </div>
       </div>
+       {/* ------------------ CREATE STATIC DATA SECTION ------------------ */}
+      <div
+        style={{
+          padding: '20px',
+          border: '1px solid #ccc',
+          borderRadius: '10px',
+          marginTop: '40px',
+        }}
+      >
+        <h2 style={{ color: '#333', marginBottom: '20px' }}>📄 Link Static Data</h2>
+
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '10px',
+            marginBottom: '20px',
+          }}
+        >
+          {/* Asset Node dropdown */}
+          <div style={{ flex: 1 }}>
+            <label style={{ display: 'block', marginBottom: '5px' }}>Asset Node:</label>
+            <select
+              value={selectedAsset}
+              onChange={(e) => setSelectedAsset(e.target.value)}
+              style={{ width: '100%', padding: '10px' }}
+            >
+              <option value="">Select Asset Node</option>
+              {filteredNodes
+                .filter((node: any) => node.labels.includes('ASSET'))
+                .map((node: any) => (
+                  <option key={node.properties.uid} value={node.properties.uid}>
+                    {node.properties.name} ({node.properties.uid.slice(0, 6)}…)
+                  </option>
+                ))}
+            </select>
+          </div>
+
+          {/* Create Static Data button */}
+          <button
+            onClick={handleStaticData}
+            disabled={!selectedAsset}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: !selectedAsset ? '#ccc' : '#17a2b8',
+              color: 'white',
+              fontWeight: 'bold',
+              borderRadius: '5px',
+              border: 'none',
+              cursor: !selectedAsset ? 'not-allowed' : 'pointer',
+              marginTop: '22px',
+            }}
+          >
+            Link
+          </button>
+        </div>
+      </div>
     </div>
-  );  
+  );
 };
 
 export default DesignChart;

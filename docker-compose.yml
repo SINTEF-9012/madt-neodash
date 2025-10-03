@@ -56,7 +56,7 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
 
   llm:
-    image: ollama/ollama
+    image: ollama/ollama:latest
     container_name: llm
     networks:
       - sindit_network
