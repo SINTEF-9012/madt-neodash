@@ -22,7 +22,8 @@ const AnalyticsChart = (props: ChartProps) => {
   const handleSubmit = async () => {
     const startTime = new Date(); // Start timer
     try {
-        const codeResponse = await axios.get(`http://localhost:5002/analytics_generate_and_run_code`, {
+        // const codeResponse = await axios.get(`http://localhost:5002/analytics_generate_and_run_code`, {
+        const codeResponse = await axios.get(`https://madt4bc.dynabic.dev/analytics-api/analytics_generate_and_run_code`, {
           params: { task: inputText}
         });
         const executationResult = codeResponse.data.result;

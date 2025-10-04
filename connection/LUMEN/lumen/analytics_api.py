@@ -22,6 +22,7 @@ from datetime import datetime
 config = configparser.ConfigParser(allow_no_value = True)
 config.read('openaiapi.ini')
 openai_api_key = config.get('openai', 'OPENAI_API_KEY')
+ollama_api_key = config.get('openai', 'OLLAMA_API_KEY')
 
 openai_llm_config = {
     "config_list": [{"model": "gpt-4o", "api_key": openai_api_key, "api_rate_limit": 10.0, "tags": ["gpt4o", "openai"]}],
@@ -41,6 +42,16 @@ gemma_llm_config = {"config_list": [
     "api_key": "ollama",
   },
 ] }
+
+gemma_llm_cluster_config = {"config_list": [
+  {
+    "model": "gemma3:27b",
+    "base_url": "https://ollama.dynabic.dev/ollama",
+    "api_key": "sk-62c7b4ed49084f17a4bd627477f30dc8",
+  },
+] }
+
+
 
 ollama_llm_config = {"config_list": [
   {
@@ -87,7 +98,8 @@ def analytics_generate_and_run_code():
 
     def query_neo4j(query: str) -> str:
         try:
-            api_url = "http://localhost:5001/neo4j_run_query"  # Update this if the API runs on a different host
+            # api_url = "http://localhost:5001/neo4j_run_query"  # Update this if the API runs on a different host
+            api_url = "https://madt4bc.dynabic.dev/neo4j-api/neo4j_run_query"
             payload = {"query": query}
             headers = {"Content-Type": "application/json"}
             response = requests.post(api_url, data=json.dumps(payload), headers=headers)

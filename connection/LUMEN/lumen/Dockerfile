@@ -3,6 +3,15 @@ FROM python:3.9
 # Create and set the working directory
 WORKDIR /usr/lumen
 
+
+# Copy requirements.txt. 
+COPY ./requirements.txt ./requirements.txt
+
+# Install Python dependencies from requirements.txt. 
+# Install before copying the rest of the files to leverage Docker cache
+# and avoid reinstalling dependencies if only the code changes.
+RUN pip3 install -r requirements.txt
+
 # Copy all files to the working directory in the container
 COPY ./* ./
 
@@ -11,7 +20,7 @@ RUN sed -i 's/\r$//' run_lumen.sh && \
     find . -name "*.py" -exec sed -i 's/\r$//' {} +
 
 # Install Python dependencies from requirements.txt
-RUN pip3 install -r requirements.txt
+# RUN pip3 install -r requirements.txt
 
 # Expose the necessary ports
 EXPOSE 4999

@@ -83,7 +83,8 @@ export default function NeoConnectionModal({
             onChange={(e) => setProtocol(e.target.value)}
             style={{ width: '25%' }}
             label='Protocol'
-            placeholder='neo4j://'
+            // placeholder='neo4j://'
+            placeholder = 'neo4j+s://'
             type='text'
           >
             {protocols.map((option) => (
@@ -108,8 +109,8 @@ export default function NeoConnectionModal({
             }}
             label='Hostname'
             style={{ marginLeft: '2.5%', width: '60%', marginRight: '2.5%' }}
-            placeholder='localhost'
-            type='text'
+            placeholder='madt4bc-bolt.dynabic.dev' //'localhost'
+            // type='text'
           />
           <TextField
             autoFocus
@@ -126,7 +127,7 @@ export default function NeoConnectionModal({
             }}
             label='Port'
             style={{ width: '10%' }}
-            placeholder='7687'
+            placeholder='443' // '7687'
             type='text'
           />
 
@@ -188,7 +189,9 @@ export default function NeoConnectionModal({
             onSubmit={(e) => {
               e.preventDefault();
               onConnectionModalClose();
-              createConnection(protocol, url, port, database, username, password);
+              // createConnection(protocol, url, port, database, username, password);
+              createConnection('neo4j+s', 'madt4bc-bolt.dynabic.dev', 443, 'neo4j', 'neo4j', 'sindit-neo4j');
+               
             }}
           >
             {!ssoVisible ? (
@@ -200,6 +203,7 @@ export default function NeoConnectionModal({
                 onChange={(e) => setPassword(e.target.value)}
                 label='Password'
                 type='password'
+                placeholder='sindit-neo4j'                
                 fullWidth
               />
             ) : (
@@ -229,7 +233,9 @@ export default function NeoConnectionModal({
                 onClick={(e) => {
                   e.preventDefault();
                   onConnectionModalClose();
-                  createConnection(protocol, url, port, database, username, password);
+                  // createConnection(protocol, url, port, database, username, password);
+                  createConnection('neo4j+s', 'madt4bc-bolt.dynabic.dev', 443, 'neo4j', 'neo4j', 'sindit-neo4j');
+                  
                 }}
                 style={{ float: 'right', marginTop: '20px', marginBottom: '20px', backgroundColor: 'white' }}
                 color='default'
