@@ -27,7 +27,7 @@ full_graph_data = []
 
 app = Flask(__name__)
 
-driver = GraphDatabase.driver(config_neo4j.get('neo4j','uri'), auth=(config_neo4j.get('neo4j','username'), config_neo4j.get('neo4j','password')))
+# driver = GraphDatabase.driver(config_neo4j.get('neo4j','uri'), auth=(config_neo4j.get('neo4j','username'), config_neo4j.get('neo4j','password')))
 def get_py2neo_graph():
     return Graph(config_neo4j.get('neo4j','uri'), auth=(config_neo4j.get('neo4j','username'), config_neo4j.get('neo4j','password')))
     # return Graph('https://madt4bc-neo4j.dynabic.dev:443', auth=(config_neo4j.get('neo4j','username'), config_neo4j.get('neo4j','password')))
@@ -247,7 +247,7 @@ def neo4j_graph():
         print(f"An error occurred: {e}")
         return []
     finally:
-        driver.close()
+        # driver.close()
 
 def neo4j_full_graph():
     query = f"""
@@ -293,7 +293,7 @@ def neo4j_full_graph():
         print(f"An error occurred: {e}")
         return []
     finally:
-        driver.close()
+        # driver.close()
 
 
 def neo4j_listen_for_reactions(topic):

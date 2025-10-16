@@ -45,9 +45,11 @@ gemma_llm_config = {"config_list": [
 
 gemma_llm_cluster_config = {"config_list": [
   {
-    "model": "gemma3:27b",
-    "base_url": "https://ollama.dynabic.dev/ollama",
+    # "model": "gemma3:27b",
+    "model": "llama3.1:8b",
+    "base_url": "https://ollama.dynabic.dev/ollama/v1",
     "api_key": "sk-62c7b4ed49084f17a4bd627477f30dc8",
+    # "api_type": "ollama",
   },
 ] }
 
@@ -62,7 +64,7 @@ ollama_llm_config = {"config_list": [
 ] }
 
 # All agents get following config. Change LLM config 
-current_llm_config = ollama_llm_config
+current_llm_config = gemma_llm_cluster_config
 
 # Decide if there is human interaction or not
 DEBUG_MODE = False
