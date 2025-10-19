@@ -294,7 +294,7 @@ def analytics_generate_and_run_code():
         name = "output_repeater",
         model_client= current_model_client,
         description = "An agent that gives the output of previous agent to the user.",
-        system_message="Repeat the previous agent message as an concise output to the user and write TERMINATE at the end to finish the conversation. If an error is present, explain it."
+        system_message="Repeat the previous agent message (if very long, summarize it) to the user and write TERMINATE at the end to finish the conversation. If an error is present, explain it."
     )
 
     # Team
