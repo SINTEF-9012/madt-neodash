@@ -297,20 +297,21 @@ def neo4j_listen_for_reactions(topic):
             print(f'[neo4j_api.py] Received reaction message from partition: {message.partition}, offset: {message.offset}')
             properties  = parse_reaction_properties(message_content)
             # Create REACTION node with properties:
+            # TODO: Should use the EVENT ID in SOAR4BC when generating REACTION.
             query_reaction = """
             MERGE (asset:ASSET {uid: $target_uid})
-            MERGE (attk:ATTACKER {uid: $attacker_uid})
+            MERGE (event:EVENT {src_asset_uuid: $attacker_uid})
             CREATE (react:REACTION $props)
             SET react.uid = apoc.create.uuid()
             CREATE (react)-[:Involves]->(asset)
-            CREATE (react)-[:Mitigates]->(attk)
-            RETURN react, asset, attk
+            CREATE (react)-[:ReactionTo]->(event)
+            RETURN react, asset, event
             """
             target_uid = properties.get("target_uuid")
             attacker_uid = properties.get("attacker_uuid")
             # Run the query with parameters using the Neo4j driver:
             with driver.session() as session:
-                print(f"[neo4j_api.py] Creating REACTION node, linking to ASSET node with UID: {target_uid} and ATTACKER node with UID: {attacker_uid} ")
+                print(f"[neo4j_api.py] Creating REACTION node, linking to ASSET node with UID: {target_uid} and EVENT node with attacker UID: {attacker_uid} ")
                 session.run(query_reaction, target_uid=target_uid, attacker_uid=attacker_uid, props=properties)
     except KeyboardInterrupt:
         print("[neo4j_api.py] Consumer stopped from keyboard.")
@@ -364,54 +365,73 @@ def neo4j_listen_for_events(topic):
         for message in consumer:
             message_content = message.value
             print(f'[neo4j_api.py] Received event message from partition: {message.partition}, offset: {message.offset}')
-            properties  = parse_alarm_properties(message_content) 
-            selected_keys = ["attack_uuid", "attack_type", "attack_id", "attack_created", "attack_modified", "simulation"]
-            attk_properties = {k: properties[k] for k in selected_keys if k in properties}
-            # New EVENT with the properties fetched from alarm. Related to source ip asset
-            query_event = """
-            MERGE (asset:ASSET {uid: $dst_uid})
-            CREATE (event:EVENT $props)
-            SET event.uid = apoc.create.uuid()
-            CREATE (event)-[:Affects]->(asset)
-            RETURN event, asset
-            """
+            properties  = parse_alarm_properties(message_content)
             # Use the src_uid and dst_uid from the parsed properties; if absent, the query might fail.
             dst_uid = properties.get("dst_asset_uuid")
             src_uid = properties.get("src_asset_uuid")
             src_ip = properties.get("src_ip")
+            selected_keys = ["attack_uuid", "attack_type", "attack_id", "attack_created", "attack_modified", "simulation"]
+            attk_properties = {k: properties[k] for k in selected_keys if k in properties}
+            # TODO: Check if targeted asset is found in the knowledge graph, otherwise ignore the event.
+            query_check_asset = """
+            MATCH (asset:ASSET {uid: $dst_uid})
+            RETURN COUNT(asset) > 0 AS asset_exists
+            """
+            with driver.session() as session:
+                result = session.run(query_check_asset, {"dst_uid": dst_uid})
+                asset_exists = result.single()["asset_exists"]
+            if asset_exists:    
+                # New EVENT with the properties fetched from alarm. Related to source ip asset
+                query_event = """
+                MERGE (asset:ASSET {uid: $dst_uid})
+                CREATE (event:EVENT $props)
+                SET event.uid = apoc.create.uuid()
+                CREATE (event)-[:Affects]->(asset)
+                RETURN event.uid AS event_uid
+                """
+                # Run the query with parameters using the Neo4j driver:
+                with driver.session() as session:
+                    print(f"[neo4j_api.py] Creating EVENT node, and linking to ASSET node with UID: {dst_uid}")
+                    result = session.run(query_event, dst_uid=dst_uid, props=properties)
+                    record = result.single()  # Get the first returned record
+                    if record:
+                        event_uid = record["event_uid"]
+                        print(f"[neo4j_api.py] Created EVENT node with UID: {event_uid}")
+                    else:
+                        event_uid = None
+                        print("[neo4j_api.py] No EVENT node created or returned.")
 
-            # If attacker has no uuid: 
-            if src_uid == "":
-                # New ATTACKER with ip of src_ip and generated uuid. Links to target asset
-                query_attack = """
-                MERGE (asset:ASSET {uid: $dst_uid})
-                CREATE (attk:ATTACKER $attk_props)
-                SET attk.ip = $src_ip
-                SET attk.uid = apoc.create.uuid()
-                CREATE (attk)-[:Attacks]->(asset)
-                RETURN attk, asset
-                """
+                # If attacker has no uuid: 
+                if src_uid == "":
+                    # New ATTACKER with ip of src_ip and generated uuid. Links to target asset
+                    query_attack = """
+                    MERGE (asset:ASSET {uid: $dst_uid})
+                    MERGE (event:EVENT {uid: $event_uid})
+                    CREATE (attk:ATTACKER $attk_props)
+                    SET attk.ip = $src_ip
+                    SET attk.uid = apoc.create.uuid()
+                    CREATE (attk)-[:Attacks]->(asset)
+                    CREATE (attk)-[:Produces]->(event)
+                    RETURN attk, asset
+                    """
+                    # session.run(query_attack, dst_uid=dst_uid, src_ip=src_ip, attk_props=attk_properties)
+                else:
+                    # New ATTACKER with ip of src_ip and reused uuid. Links to target asset
+                    query_attack = """
+                    MERGE (asset:ASSET {uid: $dst_uid})
+                    MERGE (attk:ATTACKER {uid: $src_uid})
+                    MERGE (event:EVENT {uid: $event_uid})
+                    ON CREATE SET attk.ip = $src_ip, attk += $attk_props
+                    MERGE (attk)-[:Attacks]->(asset)
+                    CREATE (attk)-[:Produces]->(event)
+                    RETURN attk, asset
+                    """
                 # Run the query with parameters using the Neo4j driver:
                 with driver.session() as session:
-                    print(f"[neo4j_api.py] Creating EVENT node, and linking to ASSET node with UID: {dst_uid}")
-                    session.run(query_event, dst_uid=dst_uid, props=properties)
                     print(f"[neo4j_api.py] Creating ATTACKER node and linking to ASSET node with UID: {dst_uid}")
-                    session.run(query_attack, dst_uid=dst_uid, src_ip=src_ip, attk_props=attk_properties)
+                    session.run(query_attack, dst_uid=dst_uid, src_ip=src_ip, src_uid=src_uid, attk_props=attk_properties, event_uid=event_uid)
             else:
-                # New ATTACKER with ip of src_ip and reused uuid. Links to target asset
-                query_attack = """
-                MERGE (asset:ASSET {uid: $dst_uid})
-                MERGE (attk:ATTACKER {uid: $src_uid})
-                ON CREATE SET attk.ip = $src_ip, attk += $attk_props
-                MERGE (attk)-[:Attacks]->(asset)
-                RETURN attk, asset
-                """
-                # Run the query with parameters using the Neo4j driver:
-                with driver.session() as session:
-                    print(f"[neo4j_api.py] Creating EVENT node, and linking to ASSET node with UID: {dst_uid}")
-                    session.run(query_event, dst_uid=dst_uid, props=properties)
-                    print(f"[neo4j_api.py] Creating ATTACKER node and linking to ASSET node with UID: {dst_uid}")
-                    session.run(query_attack, dst_uid=dst_uid, src_ip=src_ip, src_uid=src_uid, attk_props=attk_properties)
+                print(f"[neo4j_api.py] EVENT recorded but skipped due to no ASSET being found with uid: {dst_uid}")
     except KeyboardInterrupt:
         print("[neo4j_api.py] Consumer stopped from keyboard.")
     except Exception as e:
