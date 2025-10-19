@@ -130,8 +130,8 @@ def analytics_generate_and_run_code():
                 OPTIONAL MATCH (a)<-[*]-(sd:STATICDATA)
                 OPTIONAL MATCH (a)<-[*]-(ds:DATASOURCE)
                 RETURN a AS asset,
-                    collect(DISTINCT sd.bucket) AS static_buckets,
-                    collect(DISTINCT ds.bucket) AS datasource_buckets
+                    collect(DISTINCT {{bucket: sd.bucket, type: sd.type}}) AS static_buckets,
+                    collect(DISTINCT {{bucket: ds.bucket, type: ds.type}}) AS datasource_buckets
                 """
                 # Call the Neo4j API via create_content()
                 raw_result = await create_content(query)
