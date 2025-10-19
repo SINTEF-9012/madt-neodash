@@ -20,3 +20,4 @@ autogen-agentchat==0.7.5
 autogen-ext[openai]
 autogen-ext[ollama]
 autogen-ext[docker]
+nest-asyncio

@@ -14,7 +14,6 @@ from autogen_agentchat.messages import BaseAgentEvent, BaseChatMessage, ModelCli
 from autogen_core.tools import BaseTool, FunctionTool, ToolResult
 from autogen_agentchat.base import Response
 from pathlib import Path
-import asyncio
 import tempfile
 import configparser
 import io
@@ -30,6 +29,24 @@ import time
 from pydantic import BaseModel, Field
 from typing import Annotated, Literal, List, Optional, Union, Sequence, Any, Callable, Dict, Mapping, AsyncGenerator
 from datetime import datetime
+
+import asyncio
+import nest_asyncio
+
+# Create a single global event loop for all requests
+global_loop = asyncio.new_event_loop()
+nest_asyncio.apply()
+asyncio.set_event_loop(global_loop)
+
+def run_async(coro):
+    """Run async coroutine safely using the persistent global loop."""
+    global global_loop
+    if global_loop.is_closed():
+        # Recreate if something closed it accidentally
+        global_loop = asyncio.new_event_loop()
+        nest_asyncio.apply()
+        asyncio.set_event_loop(global_loop)
+    return global_loop.run_until_complete(coro)
 
 # OpenAI version - if key is available:
 """
@@ -56,20 +73,6 @@ ollama_model_client = OllamaChatCompletionClient(model="llama3.1:8b", host= "htt
 # All agents get following config. Change LLM config 
 current_model_client = ollama_model_client
 
-def run_async(coro):
-    """Run an async coroutine safely, even inside Flask or Jupyter."""
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = None
-
-    if loop and loop.is_running():
-        # We're in an existing event loop (e.g. threaded Flask)
-        import nest_asyncio
-        nest_asyncio.apply()
-        return loop.run_until_complete(coro)
-    else:
-        return asyncio.run(coro)
 
 app = Flask(__name__)
 
@@ -231,8 +234,8 @@ def analytics_generate_and_run_code():
                 print(f"[InfluxDB] filepath_driver saved time-series CSV data to path: {file_path}")
                 return file_path
             # Handle failed response codes
-            print(f"[InfluxDB] filepath_driver HTTP error {response.status_code}: {response.text}")
-            return f"[InfluxDB] filepath_driver HTTP error {response.status_code}: {response.text}"
+            print(f"[InfluxDB] filepath_driver HTTP error <(BUCKET_ERROR)> {response.status_code}: {response.text}")
+            return f"[InfluxDB] filepath_driver HTTP error <(BUCKET_ERROR)> {response.status_code}: {response.text}"
         except Exception as e:
             print(f"[InfluxDB] Error in filepath_driver <(BUCKET_ERROR)>: {e}")
             return f"[InfluxDB] Error in filepath_driver <(BUCKET_ERROR)>: {e}"
@@ -254,8 +257,8 @@ def analytics_generate_and_run_code():
                 file_path = json_response["file_path"]
                 print(f"[MinIO] filepath_driver saved static data to path: {file_path}")
                 return file_path
-            print(f"[MinIO] filepath_driver HTTP error {response.status_code}: {response.text}")
-            return f"[MinIO] filepath_driver HTTP error {response.status_code}: {response.text}"
+            print(f"[MinIO] filepath_driver HTTP error <(BUCKET_ERROR)> {response.status_code}: {response.text}")
+            return f"[MinIO] filepath_driver HTTP error <(BUCKET_ERROR)> {response.status_code}: {response.text}"
         except Exception as e:
             print(f"[MinIO] Error in filepath_driver <(BUCKET_ERROR)>: {e}")
             return f"[MinIO] Error in filepath_driver <(BUCKET_ERROR)>: {e}"
@@ -294,7 +297,7 @@ def analytics_generate_and_run_code():
         name = "output_repeater",
         model_client= current_model_client,
         description = "An agent that gives the output of previous agent to the user.",
-        system_message="Repeat the previous agent message (if very long, summarize it) to the user and write TERMINATE at the end to finish the conversation. If an error is present, explain it."
+        system_message="Repeat the response of the previous agent and write TERMINATE at the end to finish the conversation. If an error is present, explain it."
     )
 
     # Team
