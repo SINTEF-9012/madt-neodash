@@ -10,6 +10,14 @@ import axios from 'axios'; // HTTP client
 const StaticDataChart = (props: ChartProps) => {
   //const { generated, setGenerated } = useState(0);
 
+  const NEO4J_ENDPOINT_5001 = 'https://madt4bc.dynabic.dev/neo4j-api';
+  const MINIO_ENPOINT_5000 = 'https://madt4bc.dynabic.dev/minio-api';
+  const INFLUXDB_ENDPOINT_4999 = 'https://madt4bc.dynabic.dev/influxdb-api';
+
+  // const NEO4J_ENDPOINT_5001 = "http://localhost:5001";
+  // const MINIO_ENPOINT_5000 = "http://localhost:5000";
+  // const INFLUXDB_ENDPOINT_4999 = "http://localhost:4999";
+
   const { records, settings, getGlobalParameter } = props;
   const node = records && records[0] && records[0]._fields && records[0]._fields[0] ? records[0]._fields[0] : {};
   const bucket = node.properties['bucket']; // Obs! Instead of endpoint
@@ -18,7 +26,7 @@ const StaticDataChart = (props: ChartProps) => {
 
   const handleDownload = () => {
     // Trigger the download function in `minio_api.py`
-    const httpStringDownload = `http://localhost:5000/minio_local_download?endpoint=${bucket}`;
+    const httpStringDownload = `${MINIO_ENPOINT_5000}/minio_local_download?endpoint=${bucket}`;
     axios.get(httpStringDownload)
       .then((response) => {
         if (response.data.status === 200) {
@@ -46,7 +54,7 @@ const StaticDataChart = (props: ChartProps) => {
     formData.append('asset_id', bucket);
     // Upload file in MinIO
     try {
-      const uploadResponse = await axios.post('http://localhost:5000/minio_upload_file', formData, {
+      const uploadResponse = await axios.post(`${MINIO_ENPOINT_5000}/minio_upload_file`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -54,7 +62,7 @@ const StaticDataChart = (props: ChartProps) => {
       console.log('[StaticDataChart.tsx] File upload returned following status:', uploadResponse.data.status);
       // If upload is successful, fetch last object URL
       if (uploadResponse.data.status === 200){
-        const httpString = 'http://localhost:5000/minio_get_last_url?endpoint=' + bucket;
+        const httpString = `${MINIO_ENPOINT_5000}/minio_get_last_url?endpoint=` + bucket;
         const urlResponse = await axios.get(httpString);
         console.log('[StaticDataChart.tsx] URL fetched:', urlResponse.data.url);
         // If fetching URL is successful, update node with metadata
@@ -69,7 +77,7 @@ const StaticDataChart = (props: ChartProps) => {
             data_format: uploadResponse.data.format,
             data_type: uploadResponse.data.format
           };
-          const postUrl = 'http://localhost:5001/neo4j_update_metadata';
+          const postUrl = `${NEO4J_ENDPOINT_5001}/neo4j_update_metadata`;
           const updateResponse = await axios.post(postUrl, postData);
           console.log('[StaticDataChart.tsx] Update status in Neo4j:', updateResponse.data.status);
         } else {

@@ -16,10 +16,14 @@ def main():
     # Update with right user (use case/ DYNABIC component)
     config.read('minio_config.ini')
     # Initialize client:
+    endpoint =  config.get('minio', 'endpoint')
+    print(f"[minio_access.py] Connecting to MinIO server at endpoint: {endpoint}", flush=True)
+
     client = Minio(config.get('minio', 'endpoint'),
         access_key=config.get('minio', 'access_key'),
         secret_key=config.get('minio', 'secret_key'),
-        secure = config.getboolean('minio', 'secure'))
+        secure = config.getboolean('minio', 'secure'), 
+        cert_check=False)
 
 
 ### Bucket Operations ###
@@ -56,6 +60,7 @@ def list_buckets():
     print(f"[minio_access.py] MinIO Database consists of following {len(buckets)} buckets:")
     for bucket in buckets:
         print(bucket.name)
+    return buckets
     # Tested
 
 def remove_bucket(bucket_name):

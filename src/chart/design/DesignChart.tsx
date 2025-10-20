@@ -2,10 +2,21 @@ import React, { useState } from 'react';
 import axios from 'axios'; // HTTP client
 import { ChartProps } from '../Chart';
 
+
+
+
 const DesignChart = (props: ChartProps) => {
   const { records } = props;
   // Extract nodes
   const validTypes = ['ASSET', 'ATTACKER', 'EVENT', 'CONSEQUENCE', 'THREAT'];
+
+  const NEO4J_ENDPOINT_5001 = 'https://madt4bc.dynabic.dev/neo4j-api';
+  const MINIO_ENPOINT_5000 = 'https://madt4bc.dynabic.dev/minio-api';
+  const INFLUXDB_ENDPOINT_4999 = 'https://madt4bc.dynabic.dev/influxdb-api';
+
+  // const NEO4J_ENDPOINT_5001 = "http://localhost:5001";
+  // const MINIO_ENPOINT_5000 = "http://localhost:5000";
+  // const INFLUXDB_ENDPOINT_4999 = "http://localhost:4999";
 
   const filteredNodes = records
     .map((record: any) => record._fields?.[0])
@@ -30,14 +41,14 @@ const DesignChart = (props: ChartProps) => {
  const handleStaticData = async () => {
     try {
       const postData = {asset_uid: selectedAsset};
-      const postUrl = 'http://localhost:5001/neo4j_add_static_data';
+      const postUrl = NEO4J_ENDPOINT_5001+'/neo4j_add_static_data';
       const updateResponse = await axios.post(postUrl, postData);
       const {message, uid } = updateResponse.data;
       alert(message);
       //console.log(uid);
       // If staticdata uid returned, create bucket in minio:
       if (uid) {
-        await axios.post('http://localhost:5000/minio_add_bucket', { bucket: uid });
+        await axios.post(MINIO_ENPOINT_5000+'/minio_add_bucket', { bucket: uid });
       }
     } catch (err) {
       console.error('[DesignChart.tsx] Error creating static data node:', err);
@@ -50,7 +61,7 @@ const DesignChart = (props: ChartProps) => {
     try {
       const postData = {source_uid: sourceNode,
                         target_uid: targetNode};
-      const postUrl = 'http://localhost:5001/neo4j_add_relation';
+      const postUrl = NEO4J_ENDPOINT_5001+'/neo4j_add_relation';
       const updateResponse = await axios.post(postUrl, postData);
       alert('Relation created!');
     } catch (err) {
@@ -99,7 +110,7 @@ const DesignChart = (props: ChartProps) => {
       customProps: nodeData.customProps.filter(p => p.key && p.value)
     };
     try {
-      const postUrl = 'http://localhost:5001/neo4j_add_node';
+      const postUrl = NEO4J_ENDPOINT_5001+'/neo4j_add_node';
       const updateResponse = await axios.post(postUrl, postData);
       // Destructure the response data
       const {message, datasource, staticdata, uid } = updateResponse.data;
@@ -110,13 +121,13 @@ const DesignChart = (props: ChartProps) => {
       // If staticdata is true, create a bucket in Minio with uid as name
       if (staticdata === true) {
         console.log("Triggered minio bucket adding.")
-        await axios.post('http://localhost:5000/minio_add_bucket', { bucket: uid });
+        await axios.post(MINIO_ENPOINT_5000+'/minio_add_bucket', { bucket: uid });
       }
   
       // If datasource is true, create a bucket in InfluxDB with uid as name
       if (datasource === true) {
         console.log("Triggered influxdb bucket adding.")
-        await axios.post('http://localhost:4999/influxdb_add_bucket', { bucket: uid });
+        await axios.post(INFLUXDB_ENDPOINT_4999+'/influxdb_add_bucket', { bucket: uid });
       }
     } catch (error) {
       console.error(error);

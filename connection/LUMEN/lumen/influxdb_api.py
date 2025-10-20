@@ -361,6 +361,12 @@ def influxdb_realtime_upload(topic, uid):
         consumer.close()
         print(f'[influxdb_api.py] Consumer closed for topic {topic}.')
 
+@app.route('/ping', methods=['GET'])
+def ping():
+    ready = client.ping()
+    print("Ping route called", flush=True)
+    return str(ready)
+
 if __name__ == '__main__':
     # UNCOMMENT FOR KAFKA INTEGRATION:
     time.sleep(60)  # Sleeps initially to allow mapping process to finish
@@ -384,6 +390,6 @@ if __name__ == '__main__':
                 listener_thread.start()
     else:
         print("[influxdb_api.py] No topic mapping.")
-    app.run(host="0.0.0.0", debug=False, port=4999)
+    app.run(host="0.0.0.0", debug=True, port=4999, use_reloader=False)
     
 

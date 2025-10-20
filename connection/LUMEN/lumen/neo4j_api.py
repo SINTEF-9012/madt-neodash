@@ -13,6 +13,7 @@ import urllib.request
 import magic
 import shutil
 from py2neo import Graph
+import traceback
 
 # Load configurations from .ini files
 config_kafka = configparser.ConfigParser()
@@ -52,14 +53,16 @@ def neo4j_update_url():
     url = data['url']
     print("[neo4j_api.py] Received request to update:", node_name, " from bucket ", endpoint, " with URL: ", url)
     # with driver.session() as session:
-    with get_py2neo_graph() as session:
-        result = session.run("MATCH (n) WHERE n.name = $node_name AND n.endpoint = $endpoint "
-                             "SET n.url = $url RETURN n",
-                             node_name=node_name, endpoint=endpoint, url=url)
-        return jsonify([record["n"].get("url") for record in result])
+    # with get_py2neo_graph() as session:
+    session = get_py2neo_graph()
+    result = session.run("MATCH (n) WHERE n.name = $node_name AND n.endpoint = $endpoint "
+                            "SET n.url = $url RETURN n",
+                            node_name=node_name, endpoint=endpoint, url=url)
+    return jsonify([record["n"].get("url") for record in result])
     
 @app.route('/neo4j_update_metadata', methods=['POST'])
 def neo4j_update_metadata():
+    print("[neo4j_api.py] neo4j_update_metadata called." + str(request.json))
     data = request.json
     # All metadata:
     node_name = data['node_name']
@@ -76,11 +79,12 @@ def neo4j_update_metadata():
     print("[neo4j_api.py] data_type: " + data_type)
     print("[neo4j_api.py] file_name: " + file_name)
     # with driver.session() as session:
-    with get_py2neo_graph() as session:
-        result = session.run("MATCH (n) WHERE n.name = $node_name AND n.bucket = $bucket "
-                             "SET n.url = $url, n.add_date = $add_date, n.format = $data_format, n.type = $data_type, n.file_name = $file_name RETURN n",
-                             node_name=node_name, bucket=bucket, url=url, add_date=add_date, data_format=data_format, data_type=data_type, file_name=file_name)
-        return jsonify([record["n"].get("url") for record in result])
+    # with get_py2neo_graph() as session:
+    session = get_py2neo_graph()
+    result = session.run("MATCH (n) WHERE n.name = $node_name AND n.bucket = $bucket "
+                            "SET n.url = $url, n.add_date = $add_date, n.format = $data_format, n.type = $data_type, n.file_name = $file_name RETURN n",
+                            node_name=node_name, bucket=bucket, url=url, add_date=add_date, data_format=data_format, data_type=data_type, file_name=file_name)
+    return jsonify([record["n"].get("url") for record in result])
     
 @app.route('/neo4j_update_task', methods=['POST'])
 def neo4j_update_task():
@@ -90,11 +94,11 @@ def neo4j_update_task():
     task = data['task']
     print("[neo4j_api.py] Received request to update:", node_name, " from bucket ",endpoint, " with task: ", task)
     # with driver.session() as session:
-    with get_py2neo_graph() as session:
-        result = session.run("MATCH (n) WHERE n.name = $node_name AND n.endpoint = $endpoint "
-                             "SET n.task = $task RETURN n",
-                             node_name=node_name, task=task, endpoint=endpoint)
-        return jsonify([record["n"].get("task") for record in result])
+    session = get_py2neo_graph()
+    result = session.run("MATCH (n) WHERE n.name = $node_name AND n.endpoint = $endpoint "
+                            "SET n.task = $task RETURN n",
+                            node_name=node_name, task=task, endpoint=endpoint)
+    return jsonify([record["n"].get("task") for record in result])
     
 @app.route('/neo4j_update_result', methods=['POST'])
 def neo4j_update_result():
@@ -104,11 +108,11 @@ def neo4j_update_result():
     endpoint = data['endpoint']
     print("[neo4j_api.py] Received request to update:", node_name, " from bucket:", endpoint, " with result: ", result)
     # with driver.session() as session:
-    with get_py2neo_graph() as session:
-        session_result = session.run("MATCH (n) WHERE n.name = $node_name AND n.endpoint = $endpoint "
-                             "SET n.result = $result RETURN n",
-                             node_name=node_name, result=result, endpoint=endpoint)
-        return jsonify([record["n"].get("result") for record in session_result])
+    session = get_py2neo_graph()
+    session_result = session.run("MATCH (n) WHERE n.name = $node_name AND n.endpoint = $endpoint "
+                            "SET n.result = $result RETURN n",
+                            node_name=node_name, result=result, endpoint=endpoint)
+    return jsonify([record["n"].get("result") for record in session_result])
     
 @app.route('/fetch_url', methods=['POST'])
 def fetch_url():
@@ -116,11 +120,11 @@ def fetch_url():
     node_name = data['node_name']
     print("[neo4j_api.py] Received request to fetch URL from related static node and update ", node_name)
     # with driver.session() as session:
-    with get_py2neo_graph() as session:
-        result = session.run("MATCH (n:ANALYTICS)-[a:WorksOn]->(m:STATICDATA) WHERE n.name = $node_name "
-                             "SET n.url = m.url RETURN m",
-                             node_name=node_name)
-        return jsonify([record["m"].get("url") for record in result])
+    session = get_py2neo_graph()
+    result = session.run("MATCH (n:ANALYTICS)-[a:WorksOn]->(m:STATICDATA) WHERE n.name = $node_name "
+                            "SET n.url = m.url RETURN m",
+                            node_name=node_name)
+    return jsonify([record["m"].get("url") for record in result])
     
 @app.route('/fetch_endpoint', methods=['POST'])
 def fetch_endpoint():
@@ -128,11 +132,11 @@ def fetch_endpoint():
     node_name = data['node_name']
     print("[neo4j_api.py] Received request to fetch endpoint from related static node and update ", node_name)
     # with driver.session() as session:
-    with get_py2neo_graph() as session:
-        result = session.run("MATCH (n)-[a:WorksOn]->(m:STATICDATA) WHERE n.name = $node_name "
-                             "SET n.endpoint = m.endpoint RETURN m",
-                             node_name=node_name)
-        return jsonify([record["m"].get("endpoint") for record in result])
+    session = get_py2neo_graph()
+    result = session.run("MATCH (n)-[a:WorksOn]->(m:STATICDATA) WHERE n.name = $node_name "
+                            "SET n.endpoint = m.endpoint RETURN m",
+                            node_name=node_name)
+    return jsonify([record["m"].get("endpoint") for record in result])
     
     
 @app.route('/neo4j_get_result', methods=['GET'])
@@ -140,20 +144,20 @@ def neo4j_get_result():
     endpoint = request.args.get('endpoint')
     print("[neo4j_api.py] Received request to get result from Analytics node associated with endpoint: ", endpoint)
     # with driver.session() as session:
-    with get_py2neo_graph() as session:
-        result = session.run("MATCH (n:ANALYTICS) WHERE n.endpoint = $endpoint "
-                             "RETURN n", endpoint=endpoint)
-        return jsonify([record["n"].get("result") for record in result])
+    session = get_py2neo_graph() 
+    result = session.run("MATCH (n:ANALYTICS) WHERE n.endpoint = $endpoint "
+                                "RETURN n", endpoint=endpoint)
+    return jsonify([record["n"].get("result") for record in result])
     
 @app.route('/neo4j_get_task', methods=['GET'])
 def neo4j_get_task():
     endpoint = request.args.get('endpoint')
     print("[neo4j_api.py] Received request to get task from Analytics node associated with endpoint: ", endpoint)
     # with driver.session() as session:
-    with get_py2neo_graph() as session:
-        result = session.run("MATCH (n:ANALYTICS) WHERE n.endpoint = $endpoint "
-                             "RETURN n", endpoint=endpoint)
-        return jsonify([record["n"].get("task") for record in result])
+    session = get_py2neo_graph()
+    result = session.run("MATCH (n:ANALYTICS) WHERE n.endpoint = $endpoint "
+                            "RETURN n", endpoint=endpoint)
+    return jsonify([record["n"].get("task") for record in result])
     
 @app.route('/neo4j_get_parent_type', methods=['GET'])
 def neo4j_get_parent_type():
@@ -161,15 +165,15 @@ def neo4j_get_parent_type():
     node_name = request.args.get('node_name')
     print("[neo4j_api.py] Received request to get parent node type of Analytics node with endpoint:", endpoint)
     #with driver.session() as session:
-    with get_events_report() as session:
-        result = session.run(
-            """
-            MATCH (n:ANALYTICS {endpoint: $endpoint, name: $node_name})-[:WorksOn]->(target)
-            RETURN target
-            """,
-            endpoint=endpoint, node_name=node_name
-        )
-        return jsonify([record["target"].get("name") for record in result])
+    session = get_py2neo_graph()
+    result = session.run(
+        """
+        MATCH (n:ANALYTICS {endpoint: $endpoint, name: $node_name})-[:WorksOn]->(target)
+        RETURN target
+        """,
+        endpoint=endpoint, node_name=node_name
+    )
+    return jsonify([record["target"].get("name") for record in result])
      
 # - - - - -  - - - - -   - - - - -  Add more customized functions here: - - - - -   - - - - -   - - - - - 
 @app.route('/neo4j_get_data', methods=['GET'])
@@ -210,43 +214,44 @@ def neo4j_graph():
     """
     try:
         # with driver.session() as session:
-        with get_py2neo_graph() as session:
-            results = session.run(query)
-            new_graph_data = []
-            for record in results:
-                node1 = record["n"]
-                rel = record["r"]
-                node2 = record["m"]
-                # Adjusted to include relationship details as specified
-                new_graph_data.append({
-                    "n": {
-                        "identity": int(node1.element_id),
-                        "labels": list(node1.labels),
-                        "properties": dict(node1),
-                        "elementId": str(node1.element_id)
-                    },
-                    "r": {
-                        "identity": int(rel.element_id),
-                        "start": int(rel.start_node.element_id),
-                        "end": int(rel.end_node.element_id),
-                        "type": rel.type,
-                        "properties": dict(rel),
-                        "elementId": str(rel.element_id),
-                        "startNodeElementId": str(rel.start_node.element_id),
-                        "endNodeElementId": str(rel.end_node.element_id)
-                    },
-                    "m": {
-                        "identity": node2.element_id,
-                        "labels": list(node2.labels),
-                        "properties": dict(node2),
-                        "elementId": str(node2.element_id)
-                    },
-                })
-            return new_graph_data
+        session = get_py2neo_graph()
+        results = session.run(query)
+        new_graph_data = []
+        for record in results:
+            node1 = record["n"]
+            rel = record["r"]
+            node2 = record["m"]
+            # Adjusted to include relationship details as specified
+            new_graph_data.append({
+                "n": {
+                    "identity": int(node1.element_id),
+                    "labels": list(node1.labels),
+                    "properties": dict(node1),
+                    "elementId": str(node1.element_id)
+                },
+                "r": {
+                    "identity": int(rel.element_id),
+                    "start": int(rel.start_node.element_id),
+                    "end": int(rel.end_node.element_id),
+                    "type": rel.type,
+                    "properties": dict(rel),
+                    "elementId": str(rel.element_id),
+                    "startNodeElementId": str(rel.start_node.element_id),
+                    "endNodeElementId": str(rel.end_node.element_id)
+                },
+                "m": {
+                    "identity": node2.element_id,
+                    "labels": list(node2.labels),
+                    "properties": dict(node2),
+                    "elementId": str(node2.element_id)
+                },
+            })
+        return new_graph_data
     except Exception as e:
         print(f"An error occurred: {e}")
         return []
     finally:
+        None
         # driver.close()
 
 def neo4j_full_graph():
@@ -256,43 +261,44 @@ def neo4j_full_graph():
     """
     try:
         #with driver.session() as session:
-        with get_py2neo_graph() as session:
-            results = session.run(query)
-            new_graph_data = []
-            for record in results:
-                node1 = record["n"]
-                rel = record["r"]
-                node2 = record["m"]
-                # Adjusted to include relationship details as specified
-                new_graph_data.append({
-                    "n": {
-                        "identity": int(node1.element_id),
-                        "labels": list(node1.labels),
-                        "properties": dict(node1),
-                        "elementId": str(node1.element_id)
-                    },
-                    "r": {
-                        "identity": int(rel.element_id),
-                        "start": int(rel.start_node.element_id),
-                        "end": int(rel.end_node.element_id),
-                        "type": rel.type,
-                        "properties": dict(rel),
-                        "elementId": str(rel.element_id),
-                        "startNodeElementId": str(rel.start_node.element_id),
-                        "endNodeElementId": str(rel.end_node.element_id)
-                    },
-                    "m": {
-                        "identity": node2.element_id,
-                        "labels": list(node2.labels),
-                        "properties": dict(node2),
-                        "elementId": str(node2.element_id)
-                    },
-                })
-            return new_graph_data
+        session = get_py2neo_graph() 
+        results = session.run(query)
+        new_graph_data = []
+        for record in results:
+            node1 = record["n"]
+            rel = record["r"]
+            node2 = record["m"]
+            # Adjusted to include relationship details as specified
+            new_graph_data.append({
+                "n": {
+                    "identity": int(node1.element_id),
+                    "labels": list(node1.labels),
+                    "properties": dict(node1),
+                    "elementId": str(node1.element_id)
+                },
+                "r": {
+                    "identity": int(rel.element_id),
+                    "start": int(rel.start_node.element_id),
+                    "end": int(rel.end_node.element_id),
+                    "type": rel.type,
+                    "properties": dict(rel),
+                    "elementId": str(rel.element_id),
+                    "startNodeElementId": str(rel.start_node.element_id),
+                    "endNodeElementId": str(rel.end_node.element_id)
+                },
+                "m": {
+                    "identity": node2.element_id,
+                    "labels": list(node2.labels),
+                    "properties": dict(node2),
+                    "elementId": str(node2.element_id)
+                },
+            })
+        return new_graph_data
     except Exception as e:
         print(f"An error occurred: {e}")
         return []
     finally:
+        None
         # driver.close()
 
 
@@ -320,7 +326,7 @@ def neo4j_listen_for_reactions(topic):
             MERGE (asset:ASSET {uid: $target_uid})
             MERGE (attk:ATTACKER {uid: $attacker_uid})
             CREATE (react:REACTION $props)
-            SET react.uid = apoc.create.uuid()
+            SET react.uid = randomUUID()
             CREATE (react)-[:Involves]->(asset)
             CREATE (react)-[:Mitigates]->(attk)
             RETURN react, asset, attk
@@ -330,9 +336,9 @@ def neo4j_listen_for_reactions(topic):
             # Run the query with parameters using the Neo4j driver:
 
             # with driver.session() as session:
-            with get_py2neo_graph() as session:
-                print(f"[neo4j_api.py] Creating REACTION node, linking to ASSET node with UID: {target_uid} and ATTACKER node with UID: {attacker_uid} ")
-                session.run(query_reaction, target_uid=target_uid, attacker_uid=attacker_uid, props=properties)
+            session = get_py2neo_graph()
+            print(f"[neo4j_api.py] Creating REACTION node, linking to ASSET node with UID: {target_uid} and ATTACKER node with UID: {attacker_uid} ")
+            session.run(query_reaction, target_uid=target_uid, attacker_uid=attacker_uid, props=properties)
     except KeyboardInterrupt:
         print("[neo4j_api.py] Consumer stopped from keyboard.")
     except Exception as e:
@@ -392,7 +398,7 @@ def neo4j_listen_for_events(topic):
             query_event = """
             MERGE (asset:ASSET {uid: $dst_uid})
             CREATE (event:EVENT $props)
-            SET event.uid = apoc.create.uuid()
+            SET event.uid = randomUUID()
             CREATE (event)-[:Affects]->(asset)
             RETURN event, asset
             """
@@ -408,17 +414,17 @@ def neo4j_listen_for_events(topic):
                 MERGE (asset:ASSET {uid: $dst_uid})
                 CREATE (attk:ATTACKER $attk_props)
                 SET attk.ip = $src_ip
-                SET attk.uid = apoc.create.uuid()
+                SET attk.uid = randomUUID()
                 CREATE (attk)-[:Attacks]->(asset)
                 RETURN attk, asset
                 """
                 # Run the query with parameters using the Neo4j driver:
                 # with driver.session() as session:
-                with get_py2neo_graph() as session:
-                    print(f"[neo4j_api.py] Creating EVENT node, and linking to ASSET node with UID: {dst_uid}")
-                    session.run(query_event, dst_uid=dst_uid, props=properties)
-                    print(f"[neo4j_api.py] Creating ATTACKER node and linking to ASSET node with UID: {dst_uid}")
-                    session.run(query_attack, dst_uid=dst_uid, src_ip=src_ip, attk_props=attk_properties)
+                session =  get_py2neo_graph()
+                print(f"[neo4j_api.py] Creating EVENT node, and linking to ASSET node with UID: {dst_uid}")
+                session.run(query_event, dst_uid=dst_uid, props=properties)
+                print(f"[neo4j_api.py] Creating ATTACKER node and linking to ASSET node with UID: {dst_uid}")
+                session.run(query_attack, dst_uid=dst_uid, src_ip=src_ip, attk_props=attk_properties)
             else:
                 # New ATTACKER with ip of src_ip and reused uuid. Links to target asset
                 query_attack = """
@@ -430,11 +436,11 @@ def neo4j_listen_for_events(topic):
                 """
                 # Run the query with parameters using the Neo4j driver:
                 # with driver.session() as session:
-                with get_py2neo_graph() as session:
-                    print(f"[neo4j_api.py] Creating EVENT node, and linking to ASSET node with UID: {dst_uid}")
-                    session.run(query_event, dst_uid=dst_uid, props=properties)
-                    print(f"[neo4j_api.py] Creating ATTACKER node and linking to ASSET node with UID: {dst_uid}")
-                    session.run(query_attack, dst_uid=dst_uid, src_ip=src_ip, src_uid=src_uid, attk_props=attk_properties)
+                session = get_py2neo_graph()
+                print(f"[neo4j_api.py] Creating EVENT node, and linking to ASSET node with UID: {dst_uid}")
+                session.run(query_event, dst_uid=dst_uid, props=properties)
+                print(f"[neo4j_api.py] Creating ATTACKER node and linking to ASSET node with UID: {dst_uid}")
+                session.run(query_attack, dst_uid=dst_uid, src_ip=src_ip, src_uid=src_uid, attk_props=attk_properties)
     except KeyboardInterrupt:
         print("[neo4j_api.py] Consumer stopped from keyboard.")
     except Exception as e:
@@ -579,15 +585,15 @@ def neo4j_update_topic_mapping():
     # Query Neo4j for all DATASOURCE nodes
 
     #with driver.session() as session:
-    with get_py2neo_graph() as session:
-        query = "MATCH (d:DATASOURCE) RETURN d.endpoint AS endpoint, d.bucket AS bucket"
-        result = session.run(query)
-        mapping = {}
-        for record in result:
-            endpoint = record["endpoint"]
-            bucket = record["bucket"]
-            if endpoint and bucket:
-                mapping.setdefault(endpoint, []).append(bucket)
+    session = get_py2neo_graph()
+    query = "MATCH (d:DATASOURCE) RETURN d.endpoint AS endpoint, d.bucket AS bucket"
+    result = session.run(query)
+    mapping = {}
+    for record in result:
+        endpoint = record["endpoint"]
+        bucket = record["bucket"]
+        if endpoint and bucket:
+            mapping.setdefault(endpoint, []).append(bucket)
     # driver.close()
     # Deduplicate buckets
     for k in mapping:
@@ -638,12 +644,12 @@ def neo4j_create_attacker():
             query = "CREATE (a:ATTACKER) RETURN a"
             params = {}
         # with driver.session() as session:
-        with get_py2neo_graph() as session:
-            # Running the query directly in the session
-            result = session.run(query, **params)
-            nodes = [{"id": record["a"].id, "properties": record["a"].properties} for record in result]
-            print(f"[neo4j_api.py] Attacker node succesfully added to KG.")
-            return jsonify(nodes), 200
+        session = get_py2neo_graph() 
+        # Running the query directly in the session
+        result = session.run(query, **params)
+        nodes = [{"id": record["a"].id, "properties": record["a"].properties} for record in result]
+        print(f"[neo4j_api.py] Attacker node succesfully added to KG.")
+        return jsonify(nodes), 200
 
     except Exception as e:
         return jsonify({"[neo4j_api.py] Encountered error when adding new Attack node:": str(e)}), 400
@@ -663,12 +669,12 @@ def neo4j_create_threat():
             query = "CREATE (a:THREAT) RETURN a"
             params = {}
         # with driver.session() as session:
-        with get_py2neo_graph() as session:
+        session = get_py2neo_graph() 
             # Running the query directly in the session
-            result = session.run(query, **params)
-            nodes = [{"id": record["a"].id, "properties": record["a"].properties} for record in result]
-            print(f"[neo4j_api.py] Threat node succesfully added to KG.")
-            return jsonify(nodes), 200
+        result = session.run(query, **params)
+        nodes = [{"id": record["a"].id, "properties": record["a"].properties} for record in result]
+        print(f"[neo4j_api.py] Threat node succesfully added to KG.")
+        return jsonify(nodes), 200
     except Exception as e:
         return jsonify({"[neo4j_api.py] Encountered error when adding new Threat node:": str(e)}), 400
 
@@ -699,7 +705,7 @@ def neo4j_add_node():
     query = f"""
         CREATE (n:{node_type})
         SET {set_statements},
-            n.uid = apoc.create.uuid()
+            n.uid = randomUUID()
     """
     print("[neo4j_api.py] Props in Query contain:" + query)
     # If ASSET, and Data Source is selected
@@ -709,7 +715,7 @@ def neo4j_add_node():
         WITH n
         CREATE (ds:DATASOURCE {{
             name: n.name + "_DataSource",
-            uid: apoc.create.uuid(),
+            uid: randomUUID(),
             bucket: n.uid,
             endpoint: "{endpoint}"
         }})
@@ -721,7 +727,7 @@ def neo4j_add_node():
         WITH n
         CREATE (sd:STATICDATA {{
             name: n.name + "_StaticData",
-            uid: apoc.create.uuid(),
+            uid: randomUUID(),
             bucket: n.uid
             type: '',
             file_name: '',
@@ -734,12 +740,12 @@ def neo4j_add_node():
     print("[TEST] Final Query: " + query)
     try:
         # with driver.session() as session:
-        with get_py2neo_graph() as session:
-            result = session.run(query)
-            for record in result:
-                uid = record["n.uid"]  # Access each uid from the record
-                print("[neo4j_add_node] UID of node created: " + uid)
-            return jsonify({"message": f"{node_type} node created.", "datasource": datasource_tag, "staticdata": staticdata_tag, "uid":uid}), 200
+        session = get_py2neo_graph()
+        result = session.run(query)
+        for record in result:
+            uid = record["n.uid"]  # Access each uid from the record
+            print("[neo4j_add_node] UID of node created: " + uid)
+        return jsonify({"message": f"{node_type} node created.", "datasource": datasource_tag, "staticdata": staticdata_tag, "uid":uid}), 200
     except Exception as e:
         print("[neo4j_add_node] Error:", e)
         return jsonify({"error": str(e)}), 500
@@ -754,30 +760,31 @@ def neo4j_add_static_data():
         return jsonify({"error": "Missing asset UID"}), 400
     try:
         # with driver.session() as session:
-        with get_py2neo_graph() as session:
-            cypher = """
-                    MATCH (a:ASSET {uid: $asset_uid})
-                    CREATE (s:STATICDATA {
-                        uid: apoc.create.uuid(),
-                        name: a.name + '_StaticData',
-                        type: '',
-                        file_name: '',
-                        add_date: '',
-                        format: ''
-                    })
-                    MERGE (s)-[:StaticDataOf]->(a)
-                    WITH a
-                    MATCH (a)<-[:StaticDataOf]-(d:STATICDATA)
-                    SET d.bucket = d.uid
-                    RETURN d.uid
-                """
-            result = session.run(cypher, {"asset_uid": asset_uid})
-            for record in result:
-                uid = record["d.uid"]  # Access uid from the record
-                print("[neo4j_api.py] UID of static data node created: " + uid)
-            return jsonify({"message": "Created StaticData node.", "uid":uid}), 200
+        session = get_py2neo_graph()
+        cypher = """
+                MATCH (a:ASSET {uid: $asset_uid})
+                CREATE (s:STATICDATA {
+                    uid: randomUUID(),
+                    name: a.name + '_StaticData',
+                    type: '',
+                    file_name: '',
+                    add_date: '',
+                    format: ''
+                })
+                MERGE (s)-[:StaticDataOf]->(a)
+                WITH a
+                MATCH (a)<-[:StaticDataOf]-(d:STATICDATA)
+                SET d.bucket = d.uid
+                RETURN d.uid
+            """
+        result = session.run(cypher, {"asset_uid": asset_uid})
+        for record in result:
+            uid = record["d.uid"]  # Access uid from the record
+            print("[neo4j_api.py] UID of static data node created: " + uid)
+        return jsonify({"message": "Created StaticData node.", "uid":uid}), 200
     except Exception as e:
         print("[neo4j_api.py] Error creating static node:", e)
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 
@@ -791,56 +798,56 @@ def neo4j_add_relation():
         return jsonify({"error": "Missing source or target UID"}), 400
     try:
         # with driver.session() as session:
-        with get_py2neo_graph() as session:
-            # Step 1: Get labels of the source node
-            source_labels = session.run(
-                "MATCH (n {uid: $uid}) RETURN labels(n) AS labels",
-                {"uid": source_uid}
-            ).single()["labels"]
-            target_labels = session.run(
-                "MATCH (n {uid: $uid}) RETURN labels(n) AS labels",
-                {"uid": target_uid}
-            ).single()["labels"]
-            # Step 2: Determine relationship type
-            if "ASSET" in source_labels:
-                relation_type = "ConnectTo"
-            elif "EVENT" in source_labels:
-                if "ASSET" in target_labels:
-                    relation_type = "Affects"
-                elif "CONSEQUENCE" in target_labels:
-                    relation_type = "Causes"
-                else:
-                    relation_type = "Affects"
-            elif "CONSEQUENCE" in source_labels:
-                relation_type = "Impacts"
-            elif "ATTACKER" in source_labels:
-                if "ASSET" in target_labels:
-                    relation_type = "Attacks"
-                elif "CONSEQUENCE" in target_labels:
-                    relation_type = "Causes"
-                else:
-                    relation_type = "Attacks"
-            elif "THREAT" in source_labels:
-                if "ASSET" in target_labels:
-                    relation_type = "On"
-                elif "EVENT" in target_labels:
-                    relation_type = "LeadsTo"
-                elif "CONSEQUENCE" in target_labels:
-                    relation_type = "Causes"
-                else:
-                    relation_type = "ThreatOf"
+        session = get_py2neo_graph() 
+        # Step 1: Get labels of the source node
+        source_labels = session.run(
+            "MATCH (n {uid: $uid}) RETURN labels(n) AS labels",
+            {"uid": source_uid}
+        ).single()["labels"]
+        target_labels = session.run(
+            "MATCH (n {uid: $uid}) RETURN labels(n) AS labels",
+            {"uid": target_uid}
+        ).single()["labels"]
+        # Step 2: Determine relationship type
+        if "ASSET" in source_labels:
+            relation_type = "ConnectTo"
+        elif "EVENT" in source_labels:
+            if "ASSET" in target_labels:
+                relation_type = "Affects"
+            elif "CONSEQUENCE" in target_labels:
+                relation_type = "Causes"
             else:
-                return jsonify({"error": "Unsupported source node type"}), 400
-            # Step 3: Create relationship in Cypher
-            cypher = f"""
-                MATCH (source {{uid: $source_uid}}), (target {{uid: $target_uid}})
-                MERGE (source)-[:{relation_type}]->(target)
-            """
-            session.run(cypher, {
-                "source_uid": source_uid,
-                "target_uid": target_uid
-            })
-            return jsonify({"message": f"Created {relation_type} relationship."}), 200
+                relation_type = "Affects"
+        elif "CONSEQUENCE" in source_labels:
+            relation_type = "Impacts"
+        elif "ATTACKER" in source_labels:
+            if "ASSET" in target_labels:
+                relation_type = "Attacks"
+            elif "CONSEQUENCE" in target_labels:
+                relation_type = "Causes"
+            else:
+                relation_type = "Attacks"
+        elif "THREAT" in source_labels:
+            if "ASSET" in target_labels:
+                relation_type = "On"
+            elif "EVENT" in target_labels:
+                relation_type = "LeadsTo"
+            elif "CONSEQUENCE" in target_labels:
+                relation_type = "Causes"
+            else:
+                relation_type = "ThreatOf"
+        else:
+            return jsonify({"error": "Unsupported source node type"}), 400
+        # Step 3: Create relationship in Cypher
+        cypher = f"""
+            MATCH (source {{uid: $source_uid}}), (target {{uid: $target_uid}})
+            MERGE (source)-[:{relation_type}]->(target)
+        """
+        session.run(cypher, {
+            "source_uid": source_uid,
+            "target_uid": target_uid
+        })
+        return jsonify({"message": f"Created {relation_type} relationship."}), 200
     except Exception as e:
         print("[neo4j_api.py] Error:", e)
         return jsonify({"error": str(e)}), 500
@@ -856,17 +863,17 @@ def get_events_report():
     total_events = 0
 
     # with driver.session() as session:
-    with get_py2neo_graph() as session:
-        results = session.run(query)
-        # Process each record returned by Neo4j
-        for record in results:
-            event_count = record["event_count"]
-            total_events += event_count
-            asset_events.append({
-                "name": record["asset"],
-                "criticality": record["criticality"],
-                "events": event_count
-            })
+    session = get_py2neo_graph() 
+    results = session.run(query)
+    # Process each record returned by Neo4j
+    for record in results:
+        event_count = record["event_count"]
+        total_events += event_count
+        asset_events.append({
+            "name": record["asset"],
+            "criticality": record["criticality"],
+            "events": event_count
+        })
     print("[neo4j_api.py] Query ran successfully. Number of events detected: " + str(total_events))
     # Package the data into a dict
     return {
@@ -883,6 +890,11 @@ def neo4j_events():
     except Exception as e:
         # Log and return an error response if needed.
         return jsonify({"error": str(e)}), 500
+    
+@app.route("/ping", methods=["GET", "POST"])
+def ping():
+    print("Ping route called", flush=True)
+    return "pong"
 
 if __name__ == '__main__':
     # _______ UNCOMMENT FOR KAFKA INTEGRATION________:
@@ -904,4 +916,4 @@ if __name__ == '__main__':
     listener_thread_reaction = Thread(target=neo4j_listen_for_reactions, args=(uc_reaction_topic,))
     print(f'[neo4j_api.py] Listener on SOAR4BC reactions starting...')  
     listener_thread_reaction.start()
-    app.run(host="0.0.0.0", port=5001)
+    app.run(host="0.0.0.0", port=5001, debug=True, use_reloader=False)

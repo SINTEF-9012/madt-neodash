@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-from minio_access import download_last_object, get_url_last_object, list_objects, upload_object, create_bucket, get_object, print_info_object, download_lumen_object
+from minio_access import download_last_object, get_url_last_object, list_objects, upload_object, create_bucket, get_object, print_info_object, download_lumen_object, list_buckets
 import os
 import datetime
 
@@ -133,6 +133,12 @@ def minio_info_object():
     print("[minio_api.py] Object info acquired: "+info_object)
     return jsonify({'info': info_object})
 
+@app.route("/ping", methods=["GET", "POST"])
+def ping():
+    print("Ping route called", flush=True)
+    buckets = list_buckets()
+    return "pong" + str(buckets)
+
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=False)
     
