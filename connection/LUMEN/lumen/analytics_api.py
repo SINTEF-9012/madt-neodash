@@ -153,7 +153,9 @@ def analytics_generate_and_run_code():
         try:
             query = """
             MATCH (n)
+            WHERE NOT n:EVENT
             OPTIONAL MATCH (n)-[r]->(m)
+            WHERE NOT m:EVENT
             RETURN
                 collect(DISTINCT {
                     id: id(n),

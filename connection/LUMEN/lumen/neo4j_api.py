@@ -277,6 +277,67 @@ def neo4j_full_graph():
         driver.close()
 
 
+def neo4j_listen_for_status(topic):
+    # Listen to kafka topic continuously
+    consumer = KafkaConsumer(topic,
+        bootstrap_servers=[config_kafka.get('kafka', 'bootstrap_servers')],
+        security_protocol=config_kafka.get('kafka', 'security_protocol'),
+        sasl_mechanism=config_kafka.get('kafka', 'sasl_mechanism'),
+        sasl_plain_username=config_kafka.get('kafka', 'sasl_plain_username'),
+        sasl_plain_password=config_kafka.get('kafka', 'sasl_plain_password'),
+        auto_offset_reset=config_kafka.get('kafka', 'auto_offset_reset'), 
+        enable_auto_commit=True,        # Automatically commit offsets
+        value_deserializer=lambda x: x.decode('utf-8')  # Deserialize messages to string
+    )
+    # Keep listening indefinitely:
+    try:
+        print(f'[neo4j_api.py] Listening for status messages on topic: {topic}')
+        for message in consumer:
+            message_content = message.value
+            print(f'[neo4j_api.py] Received status message from partition: {message.partition}, offset: {message.offset}')
+            uid_to_status  = parse_status_properties(message_content)
+            # If dict not empty:
+            if uid_to_status:
+                # Iterate the asset uids in dict:
+                for uuid, status in uid_to_status.items():
+                    # Search for ASSET with given uuid and update status
+                    query_status = """
+                    MATCH (asset:ASSET {uid: $uuid})
+                    SET asset.status = $status
+                    RETURN asset
+                    """
+                    # Run the query with parameters using the Neo4j driver:
+                    with driver.session() as session:
+                        print(f"[neo4j_api.py] Updating status of ASSET node with UID {uuid} to {status}.")
+                        session.run(query_status, {"uuid": uuid, "status": status})
+    except KeyboardInterrupt:
+        print("[neo4j_api.py] Consumer stopped from keyboard.")
+    except Exception as e:
+        print(f"[neo4j_api.py] Error processing message: {e}")
+    finally:
+        consumer.close()
+
+def parse_status_properties(message_content):
+    """ Parse Kafka message content containing a list of {uuid, value} dicts into a dictionary mapping uuid -> value. """
+    try:
+        # Decode bytes if necessary
+        if isinstance(message_content, bytes):
+            message_content = message_content.decode("utf-8")
+        data = json.loads(message_content)
+        # Ensure it’s a list of dicts with expected fields
+        if isinstance(data, list):
+            return {item["uuid"]: item["value"] for item in data if "uuid" in item and "value" in item}
+        else:
+            print(f"[neo4j_api.py] Unexpected format: {type(data)} — expected list.")
+            return {}
+    except json.JSONDecodeError as e:
+        print(f"[neo4j_api.py] JSON decode error: {e}")
+        return {}
+    except Exception as e:
+        print(f"[neo4j_api.py] Unexpected error: {e}")
+        return {}
+
+
 def neo4j_listen_for_reactions(topic):
 # Listen to kafka topic continuously
     consumer = KafkaConsumer(topic,
@@ -400,31 +461,37 @@ def neo4j_listen_for_events(topic):
                     else:
                         event_uid = None
                         print("[neo4j_api.py] No EVENT node created or returned.")
-
-                # If attacker has no uuid: 
-                if src_uid == "":
-                    # New ATTACKER with ip of src_ip and generated uuid. Links to target asset
+                # Check if attacker (identified by src_uid) is already present in KG: 
+                query_check_attacker = """
+                    MATCH (n)
+                    WHERE (n:ASSET OR n:ATTACKER) AND n.uid = $src_uid
+                    RETURN COUNT(n) > 0 AS attacker_exists
+                """
+                with driver.session() as session:
+                    result = session.run(query_check_attacker, {"src_uid": src_uid})
+                    attacker_exists = result.single()["attacker_exists"]
+                if attacker_exists:
                     query_attack = """
-                    MERGE (asset:ASSET {uid: $dst_uid})
-                    MERGE (event:EVENT {uid: $event_uid})
-                    CREATE (attk:ATTACKER $attk_props)
-                    SET attk.ip = $src_ip
-                    SET attk.uid = apoc.create.uuid()
-                    CREATE (attk)-[:Attacks]->(asset)
-                    CREATE (attk)-[:Produces]->(event)
-                    RETURN attk, asset
+                        MERGE (asset:ASSET {uid: $dst_uid})
+                        MERGE (event:EVENT {uid: $event_uid})
+                        MERGE (attk:ATTACKER {uid: $src_uid})
+                        ON CREATE SET attk.ip = $src_ip, attk += $attk_props
+                        MERGE (attk)-[:Attacks]->(asset)
+                        MERGE (attk)-[:Produces]->(event)
+                        RETURN attk, asset
                     """
                     # session.run(query_attack, dst_uid=dst_uid, src_ip=src_ip, attk_props=attk_properties)
                 else:
-                    # New ATTACKER with ip of src_ip and reused uuid. Links to target asset
+                    # New ATTACKER with ip of src_ip and generated uuid. Links to target asset
                     query_attack = """
-                    MERGE (asset:ASSET {uid: $dst_uid})
-                    MERGE (attk:ATTACKER {uid: $src_uid})
-                    MERGE (event:EVENT {uid: $event_uid})
-                    ON CREATE SET attk.ip = $src_ip, attk += $attk_props
-                    MERGE (attk)-[:Attacks]->(asset)
-                    CREATE (attk)-[:Produces]->(event)
-                    RETURN attk, asset
+                        MERGE (asset:ASSET {uid: $dst_uid})
+                        MERGE (event:EVENT {uid: $event_uid})
+                        CREATE (attk:ATTACKER $attk_props)
+                        SET attk.ip = $src_ip
+                        SET attk.uid = apoc.create.uuid()
+                        CREATE (attk)-[:Attacks]->(asset)
+                        CREATE (attk)-[:Produces]->(event)
+                        RETURN attk, asset
                     """
                 # Run the query with parameters using the Neo4j driver:
                 with driver.session() as session:
@@ -563,7 +630,7 @@ def neo4j_graph_update(current_graph, topic, asset_only: bool):
                 sasl_plain_password=config_kafka.get('kafka', 'sasl_plain_password'),
             )
             full_graph_data = current_graph
-            producer.send(topic, json.dumps(graph_data).encode('utf-8'))
+            producer.send(topic, json.dumps(full_graph_data).encode('utf-8'))
             producer.flush()
             producer.close()
             # Produce new topic mapping:
@@ -808,6 +875,8 @@ def neo4j_add_relation():
                     relation_type = "Attacks"
                 elif "CONSEQUENCE" in target_labels:
                     relation_type = "Causes"
+                elif "EVENT" in target_labels:
+                    relation_type = "Produces"
                 else:
                     relation_type = "Attacks"
             elif "THREAT" in source_labels:
@@ -893,4 +962,10 @@ if __name__ == '__main__':
     listener_thread_reaction = Thread(target=neo4j_listen_for_reactions, args=(uc_reaction_topic,))
     print(f'[neo4j_api.py] Listener on SOAR4BC reactions starting...')  
     listener_thread_reaction.start()
+    #________UNCOMMENT FOR KAFKA INTEGRATION_________:
+    uc_status_topic = config_kafka.get('kafka',  "uc" + str(uc) + '_status')
+    if uc_status_topic:  # Only UC=2 will trigger this 
+        listener_thread_status = Thread(target=neo4j_listen_for_status, args=(uc_status_topic,))
+        print(f'[neo4j_api.py] Listener on asset status starting...')  
+        listener_thread_status.start()
     app.run(host="0.0.0.0", port=5001)
