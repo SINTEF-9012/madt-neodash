@@ -963,9 +963,14 @@ if __name__ == '__main__':
     print(f'[neo4j_api.py] Listener on SOAR4BC reactions starting...')  
     listener_thread_reaction.start()
     #________UNCOMMENT FOR KAFKA INTEGRATION_________:
-    uc_status_topic = config_kafka.get('kafka',  "uc" + str(uc) + '_status')
-    if uc_status_topic:  # Only UC=2 will trigger this 
-        listener_thread_status = Thread(target=neo4j_listen_for_status, args=(uc_status_topic,))
-        print(f'[neo4j_api.py] Listener on asset status starting...')  
-        listener_thread_status.start()
+    if config_kafka.has_option('kafka', f"uc{uc}_status"): # Only UC=2 will trigger this 
+        uc_status_topic = config_kafka.get('kafka', f"uc{uc}_status")
+        if uc_status_topic:  
+            listener_thread_status = Thread(target=neo4j_listen_for_status, args=(uc_status_topic,))
+            print(f'[neo4j_api.py] Listener on asset status starting...')  
+            listener_thread_status.start()
+        else: 
+            print("[neo4j_api.py] No topic found: Set correct UC status topic in kafka_config.ini file.")
+    else:
+        print(f"[neo4j_api.py] No uc{uc}_status found in kafka config.")
     app.run(host="0.0.0.0", port=5001)
