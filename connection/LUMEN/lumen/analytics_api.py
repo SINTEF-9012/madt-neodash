@@ -1,8 +1,19 @@
 from flask import Flask, request, jsonify
 from openai import OpenAI
-from autogen import ConversableAgent, GroupChat, GroupChatManager, register_function, Agent, gather_usage_summary
-from autogen.cache import Cache
-from autogen.coding import LocalCommandLineCodeExecutor, DockerCommandLineCodeExecutor
+from autogen_ext.code_executors.local import LocalCommandLineCodeExecutor
+from autogen_ext.code_executors.docker import DockerCommandLineCodeExecutor
+from autogen_agentchat.tools import AgentTool, TeamTool
+from autogen_ext.models.openai import OpenAIChatCompletionClient
+from autogen_ext.models.ollama import OllamaChatCompletionClient
+from autogen_agentchat.conditions import TextMessageTermination, SourceMatchTermination, MaxMessageTermination, TextMentionTermination
+from autogen_agentchat.agents import AssistantAgent, CodeExecutorAgent, UserProxyAgent
+from autogen_agentchat.teams import SelectorGroupChat
+from autogen_core.model_context import BufferedChatCompletionContext, ChatCompletionContext
+from autogen_agentchat.ui import Console
+from autogen_agentchat.messages import BaseAgentEvent, BaseChatMessage, ModelClientStreamingChunkEvent
+from autogen_core.tools import BaseTool, FunctionTool, ToolResult
+from autogen_agentchat.base import Response
+from pathlib import Path
 import tempfile
 import configparser
 import io
@@ -16,66 +27,65 @@ import json
 import csv
 import time
 from pydantic import BaseModel, Field
-from typing import Annotated, Literal
+from typing import Annotated, Literal, List, Optional, Union, Sequence, Any, Callable, Dict, Mapping, AsyncGenerator
 from datetime import datetime
 
+import asyncio
+import nest_asyncio
+
+# Create a single global event loop for all requests
+global_loop = asyncio.new_event_loop()
+nest_asyncio.apply()
+asyncio.set_event_loop(global_loop)
+
+def run_async(coro):
+    """Run async coroutine safely using the persistent global loop."""
+    global global_loop
+    if global_loop.is_closed():
+        # Recreate if something closed it accidentally
+        global_loop = asyncio.new_event_loop()
+        nest_asyncio.apply()
+        asyncio.set_event_loop(global_loop)
+    return global_loop.run_until_complete(coro)
+
+# OpenAI version - if key is available:
+"""
 config = configparser.ConfigParser(allow_no_value = True)
 config.read('openaiapi.ini')
 openai_api_key = config.get('openai', 'OPENAI_API_KEY')
-ollama_api_key = config.get('openai', 'OLLAMA_API_KEY')
 
-openai_llm_config = {
-    "config_list": [{"model": "gpt-4o", "api_key": openai_api_key, "api_rate_limit": 10.0, "tags": ["gpt4o", "openai"]}],
-    "max_tokens": 10000
-}
+openai_model_client = OpenAIChatCompletionClient(
+    model = "gpt-4.1",
+    api_key = openai_api_key,
+)
 
-openai_llm_config_2 = {
-    "config_list": [{"model": "gpt-4.1", "api_key": openai_api_key, "api_rate_limit": 10.0, "tags": ["gpt4.1", "openai"]}],
-    "temperature": 1,
-    "max_tokens": 10000
-}
+# Must disable parallel tool calls to avoid concurrency issues in AgentTool/TeamTool
+openai_model_client_no_parallel_calls = OpenAIChatCompletionClient(
+    model = "gpt-4.1",
+    api_key = openai_api_key,
+    parallel_tool_calls=False,  
+)
+"""
 
-gemma_llm_config = {"config_list": [
-  {
-    "model": "gemma3:27b",
-    "base_url": "http://llm:11434/v1",
-    "api_key": "ollama",
-  },
-] }
+with open("ollama.credential", "r") as f:
+    ollama_api_key = f.read().strip()   
+# Assuming your Ollama server is running locally on port 11434:
+ollama_model_client = OllamaChatCompletionClient(model="llama3.1:8b", host= "http://llm:11434")
 
-gemma_llm_cluster_config = {"config_list": [
-  {
-    # "model": "gemma3:27b",
-    "model": "llama3.1:8b",
-    "base_url": "https://ollama.dynabic.dev/ollama/v1",
-    "api_key": "sk-62c7b4ed49084f17a4bd627477f30dc8",
-    # "api_type": "ollama",
-  },
-] }
+print(ollama_api_key)
+import os
+os.environ['OLLAMA_API_KEY'] = ollama_api_key
+print(os.environ['OLLAMA_API_KEY'])
 
 
+ollama_cluster_client = OllamaChatCompletionClient(
+    model="llama3.1:8b",
+    host="https://ollama.dynabic.dev/ollama",
+    api_key=ollama_api_key
+)
 
-ollama_llm_config = {"config_list": [
-  {
-    "model": "llama3.1:8b",
-    "base_url": "http://llm:11434/v1",
-    "api_key": "ollama",
-  },
-] }
 
-# All agents get following config. Change LLM config 
-current_llm_config = gemma_llm_cluster_config
-
-# Decide if there is human interaction or not
-DEBUG_MODE = False
-
-class TimeseriesInput(BaseModel):
-    bucket: Annotated[str, Field(description="The bucket ID in InfluxDB.")]
-    start_time: Annotated[str, Field(description="The start time (use ISO 8601 datetime-local format: YYYY-MM-DDTHH:mm).")]
-    end_time: Annotated[str, Field(description="The end time (use ISO 8601 datetime-local format: YYYY-MM-DDTHH:mm).")]
-
-class StaticInput(BaseModel):
-    bucket: Annotated[str, Field(description="The bucket ID in MinIO.")]
+current_model_client = ollama_cluster_client
 
 
 app = Flask(__name__)
@@ -96,394 +106,282 @@ def apply_cors(response):
 def analytics_generate_and_run_code():
 
     task = request.args.get('task')
-    llm_work_dir = "./downloads"
 
-    def query_neo4j(query: str) -> str:
+    # User proxy:
+    # user_proxy = UserProxyAgent("user_proxy")
+
+    # Graph Operator:
+    async def create_content(query: str) -> str:
+        """
+        Run a Cypher query against Neo4j via the API and return results.  Returns String representation.
+        """
         try:
-            # api_url = "http://localhost:5001/neo4j_run_query"  # Update this if the API runs on a different host
-            api_url = "https://madt4bc.dynabic.dev/neo4j-api/neo4j_run_query"
+            api_url = "http://localhost:5001/neo4j_run_query"  # Adjust if API host differs
             payload = {"query": query}
             headers = {"Content-Type": "application/json"}
-            response = requests.post(api_url, data=json.dumps(payload), headers=headers)
-            # Handle response
+            # Run the API call in a thread (since requests is blocking)
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None,
+                lambda: requests.post(api_url, data=json.dumps(payload), headers=headers)
+            )
+            # Check response and parse content
             if response.status_code == 200:
-                return response.text  # Or response.json() if you want to return structured data
+                records = response.text 
+                return repr(records) + "<(CREATION_KEY)>"
             else:
-                return f"Error: {response.status_code} - {response.text}"
+                return repr({"Error in graph_operator": f"{response.status_code} - {response.text}"})
         except Exception as e:
-            return repr(e)
-
-    graph_operator = ConversableAgent(
-        "GraphOperator",
-        llm_config=False,  # Turn off LLM for this agent.
-        code_execution_config=False,
-        human_input_mode= "ALWAYS" if DEBUG_MODE else "NEVER",
-        is_termination_msg=lambda msg: (msg["content"]) and ("TERMINATE" in msg["content"])
-    )
-
-    # LUMEN EXPERIMENT VERSION:
-    """
-    graph_explorer = ConversableAgent(
-        "GraphExplorer",
-        system_message = "Your name is GraphOperator. You can answer questions by querying a Neo4j Graph Database. Generate Cypher queries and use the registered tool to execute the query. If needed, refine your previous query.\
-        The graph follows a strict schema:  \
-        (1) ASSET node has properties: name, layer, ip, description, criticality and uid. An ASSET has different relations to another ASSET (e.g. ConnectTo, Manages, Secures, etc.). \
-        (2) DATASOURCE node has properties: name, type (e.g. cicflowmeter, ocppflowmeter, metricbeat, etc.), format (timeseries), bucket, endpoint and uid. To get bucket, use the relation: (ds:DATASOURCE)-[:DataSourceOf]->(a:ASSET).\
-        (3) STATICDATA node has properties: name, type (e.g. pcap, json, csv, etc.), format (pcap, json, csv, etc.), bucket, file_name, add_date, and uid. To get bucket, use the relation: (sd:STATICDATA)-[:StaticDataOf]->(a:ASSET).\
-        Important: Use (sd:STATICDATA)-[:StaticDataOf]->(a:ASSET) and (ds:DATASOURCE)-[:DataSourceOf]->(a:ASSET) relationships to obtain bucket IDs. Use the correct direction of the relation! Only one statement per query is allowed.",
-        llm_config = current_llm_config,
-        code_execution_config=False,
-        human_input_mode= "ALWAYS" if DEBUG_MODE else "NEVER"
-    )
-    """
+            return repr({"Error in graph_operator": str(e)})
     
-    # KUBERNETES DEPLOYMENT VERSION:
-    """
-    graph_explorer = ConversableAgent(
-        "GraphExplorer",
-        system_message = "Your name is GraphOperator. You can answer questions by querying a Neo4j Graph Database. Generate Cypher queries and use the registered tool to execute the query.\
-        The graph follows a strict schema:  \
-        (1) ASSET node with properties: name, layer, ip, description, criticality and uid. An ASSET has different relations to another ASSET (e.g. ConnectTo, Manages, Secures, etc.). \
-        (2) DATASOURCE node with properties: name, type (type of data), format (data format), bucket, endpoint and uid. To get bucket, use the relation: (ds:DATASOURCE)-[:DataSourceOf]->(a:ASSET).\
-        (3) STATICDATA node with properties: name, type (type of data), format (data format), bucket, file_name, add_date, and uid. To get bucket, use the relation: (sd:STATICDATA)-[:StaticDataOf]->(a:ASSET). \
-        (4) EVENT node with properties: attack_type, src_ip, dst_ip, simulation, attack_created, number_observed, description and uid. Use the relation: (e:EVENT)-[:EventOf]->(a:ASSET). \
-        (5) RISK node with properties: name, likelihood and uid. It is connected to an EVENT via relation: (r:RISK)-[:RiskOf]->(a:EVENT).\
-        (6) CONSEQUENCE node with properties: name, description, createdAt, and uid. Relations to other nodes:(r:RISK)-[:LeadsTo]->(c:CONSEQUENCE), (c:CONSEQUENCE)-[:Affects]->(a:ASSET). \
-        Important: Use (sd:STATICDATA)-[:StaticDataOf]->(a:ASSET) and (ds:DATASOURCE)-[:DataSourceOf]->(a:ASSET) relationships to obtain bucket IDs. Use the correct direction of the relation! Only one statement per query is allowed.",
-        llm_config = current_llm_config,
-        code_execution_config=False,
-        human_input_mode= "ALWAYS" if DEBUG_MODE else "NEVER"
-    )
-    """
-    DB_SCHEMA = """
-            Node Types:
+
+    async def retrieve_content(asset_name: str) -> str:
+        """ Provides information on an ASSET node, including linked STATICDATA and DATASOURCE buckets."""
+        try:
+            if asset_name == "":
+                return await content_overview()
+            else:
+                # Build Cypher query
+                query = f"""
+                MATCH (a:ASSET {{name: "{asset_name}"}})
+                OPTIONAL MATCH (a)<-[*]-(sd:STATICDATA)
+                OPTIONAL MATCH (a)<-[*]-(ds:DATASOURCE)
+                RETURN a AS asset,
+                    collect(DISTINCT {{bucket: sd.bucket, type: sd.type}}) AS static_buckets,
+                    collect(DISTINCT {{bucket: ds.bucket, type: ds.type}}) AS datasource_buckets
+                """
+                # Call the Neo4j API via create_content()
+                raw_result = await create_content(query)
+                # Remove the custom creation marker
+                cleaned = raw_result.replace("<(CREATION_KEY)>", "").strip()
+                if "Error in graph_operator" in cleaned:
+                    # Fallback if no asset found
+                    return f"No asset found with name '{asset_name}'."
+                else:
+                    return repr(cleaned)
+        except Exception as e:
+            return repr({"Error in graph_operator": str(e)})
+
+    async def content_overview() -> str:
+        """ Returns a full overview of the knowledge graph: all nodes (with properties) and all relationships.  """
+        try:
+            query = """
+            MATCH (n)
+            WHERE NOT n:EVENT
+            OPTIONAL MATCH (n)-[r]->(m)
+            WHERE NOT m:EVENT
+            RETURN
+                collect(DISTINCT {
+                    id: id(n),
+                    labels: labels(n),
+                    properties: properties(n)
+                }) AS nodes,
+                collect(DISTINCT {
+                    id: id(r),
+                    type: type(r),
+                    start: id(startNode(r)),
+                    end: id(endNode(r)),
+                    properties: properties(r)
+                }) AS relationships
+            """
+            # Call the Neo4j API via create_content()
+            raw_result = await create_content(query)
+            # Remove the custom creation marker
+            cleaned = raw_result.replace("<(CREATION_KEY)>", "<(OVERVIEW_KEY)>").strip()
+            if "Error in graph_operator" in cleaned:
+                # Fallback if no data is found
+                return "No data is found in the Neo4J graph."
+            else:
+                return repr(cleaned)
+        except Exception as e:
+            return repr({"Error in graph_operator": str(e)})
+    
+    DB_SCHEMA = """           
+            Nodes:
             [ASSET] with properties:
-                - name: str            # Name of the ASSET
-                - layer: str           # Layer in the architecture
+                - name: str            # Name
                 - ip: str | List[str]  # IP address(es)
                 - description: str     # Asset description
                 - criticality: str     # Criticality level (low, medium, high)
-                - uid: str             # Unique identifier
-
             [DATASOURCE] with properties:
                 - name: str            # Name of the data source
-                - type: str            # Type of data
                 - format: str          # Data format
                 - bucket: str          # Bucket ID
-                - endpoint: str        # Source kafka topic
-                - uid: str             # Unique identifier
-
             [STATICDATA] with properties:
                 - name: str            # Name
-                - type: str            # Type of data
                 - format: str          # Data format
                 - bucket: str          # Bucket ID
-                - file_name: str       # File name
-                - add_date: str        # Date added
-                - uid: str             # Unique identifier
-
-            [EVENT] with properties:
-                - attack_type: str     # Type of attack
-                - src_ip: str          # Source IP
-                - dst_ip: str          # Destination IP
-                - simulation: bool     # Whether event is from simulation
-                - attack_created: str  # Timestamp of attack creation
-                - number_observed: int # Number of times observed
-                - description: str     # Description of the event
-                - uid: str             # Unique identifier
-
-            Relationship Types:
-            (a1:ASSET)-[r:]->(a2:ASSET)
-            (ds:DATASOURCE)-[:DataSourceOf]->(a:ASSET)
-            (sd:STATICDATA)-[:StaticDataOf]->(a:ASSET)
-            (e:EVENT)-[:EventOf]->(a:ASSET)
-        """
-    
-    # UPDATED KUBERNETES DEPLOYMENT VERSION:: 
-    graph_explorer = ConversableAgent(
-        "GraphExplorer",
-        system_message = """Your name is GraphOperator. You answer user requests by querying a Neo4j database. Generate Cypher queries and use the registered tool to execute the query. 
-                          Rule: You MUST follow the schema: {DB_SCHEMA}.   
-                          Important: Use the relationships in the schema to obtain bucket IDs. """,
-        llm_config = current_llm_config,
-        code_execution_config=False,
-        human_input_mode= "ALWAYS" if DEBUG_MODE else "NEVER"
+    """
+    graph_operator = AssistantAgent(
+        name = "graph_operator",
+        model_client = current_model_client,
+        tools = [retrieve_content, create_content, content_overview],
+        description = "An agent that creates and retrieves content from a Neo4J database.",
+        system_message = f""" You answer user requests by creating or retrieving Neo4J content using registered tools:
+                        -  retrieve_content: given an asset name, provides information on that asset;
+                        -  content_overview: provides full overview of graph content (only use if user asks for more than one asset);
+                        -  create_content: executes any Cypher query of choice (only CREATE statements allowed);
+                        Creation rules you MUST follow:
+                        1) Follow the schema: {DB_SCHEMA};
+                        2) One Cypher statement only;
+                        3) Use empty strings when properties are not given by the user; """,  
+        max_tool_iterations = 1,
+        reflect_on_tool_use = False
     )
 
-    register_function(
-        query_neo4j,
-        caller = graph_explorer,
-        executor = graph_operator,
-        description = "Query or modify the neo4j graph database. The input is a CYPHER query, and the output is a list of records returned from the query."
-    )
-
-    nested_chats_graph = [
-        {
-            "recipient": graph_explorer,
-            "max_turns": 2,
-            "summary_method": "reflection_with_llm"
-        }
-    ]
-
-    graph_operator.register_nested_chats(
-        nested_chats_graph, 
-        trigger = lambda sender: sender not in [graph_explorer]
-    )
-
-    # Create nested chat agent for FileExporter:
-
-    def getFilepathTimeseries(input: Annotated[TimeseriesInput, "Return file path of data saved locally from InfluxDB."]) -> str:
-        response = requests.get(
-            "http://localhost:4999/influxdb_download_data",
-            params={
-                "endpoint": input.bucket,
-                "start": input.start_time,
-                "end": input.end_time
-            }
-        )
-        # Check the response status and content
-        if response.ok:
-            json_response = response.json()
-            # output = json_response['output']
-            file_path = json_response['filename']
-            return file_path
-        else:
-            print("Error:", response.status_code, response.text)
-            return ""
-
-    def getFilepathStatic(input: Annotated[StaticInput, "Return file path of data saved locally from MinIO."]) -> str:
-        response = requests.get(
-            "http://localhost:5000/minio_lumen_download",
-            params={
-                'endpoint': input.bucket
-            }
-        )
-        if response.ok:
-            json_response = response.json()
-            print(json_response)
-            file_path = json_response["file_path"]
-            return file_path
-        else:
-            print(f"API call failed with status code: {response.status_code}")
-            return ""
+    # File Path Driver:
+    async def getFilepathTimeseries(bucket: str, start_time: str, end_time: str) -> str:
+        """ Query time-series data from InfluxDB, save it locally as a CSV, and return the file path."""
+        try:
+            response = requests.get(
+                "http://localhost:4999/influxdb_download_data",
+                params={
+                    "endpoint": bucket,
+                    "start": start_time,
+                    "end": end_time
+                }
+            )
+            # Check the response status and content
+            if response.ok:
+                json_response = response.json()
+                # Retrieved data content:
+                # output = json_response['output']
+                file_path = json_response['filename']
+                print(f"[InfluxDB] filepath_driver saved time-series CSV data to path: {file_path}")
+                return file_path
+            # Handle failed response codes
+            print(f"[InfluxDB] filepath_driver HTTP error <(BUCKET_ERROR)> {response.status_code}: {response.text}")
+            return f"[InfluxDB] filepath_driver HTTP error <(BUCKET_ERROR)> {response.status_code}: {response.text}"
+        except Exception as e:
+            print(f"[InfluxDB] Error in filepath_driver <(BUCKET_ERROR)>: {e}")
+            return f"[InfluxDB] Error in filepath_driver <(BUCKET_ERROR)>: {e}"
         
-    filepath_driver = ConversableAgent(
-        "FilePathDriver",
-        llm_config=False,  # Turn off LLM for this agent.
-        code_execution_config=False,
-        human_input_mode= "ALWAYS" if DEBUG_MODE else "NEVER",
-        is_termination_msg=lambda msg: (msg["content"]) and ("TERMINATE" in msg["content"])
+    timeseries_filepath_tool = FunctionTool(getFilepathTimeseries, description="Returns the file path of data saved from InfluxDB (time-series) given a bucket and a time selection (ISO 8601 datetime-local YYYY-MM-DDTHH:mm format). ")
+
+    async def getFilepathStatic(bucket: str) -> str:
+        """ Download the last file from a given MinIO bucket, save it locally, and return the file path."""
+        try:
+            response = requests.get(
+                "http://localhost:5000/minio_lumen_download",
+                params={
+                    'endpoint': bucket
+                }
+            )
+            if response.ok:
+                json_response = response.json()
+                print(json_response)
+                file_path = json_response["file_path"]
+                print(f"[MinIO] filepath_driver saved static data to path: {file_path}")
+                return file_path
+            print(f"[MinIO] filepath_driver HTTP error <(BUCKET_ERROR)> {response.status_code}: {response.text}")
+            return f"[MinIO] filepath_driver HTTP error <(BUCKET_ERROR)> {response.status_code}: {response.text}"
+        except Exception as e:
+            print(f"[MinIO] Error in filepath_driver <(BUCKET_ERROR)>: {e}")
+            return f"[MinIO] Error in filepath_driver <(BUCKET_ERROR)>: {e}"
+
+    static_filepath_tool = FunctionTool(
+    getFilepathStatic, description="Returns the file path of object saved from MinIO (static) given a bucket."
     )
 
-    filepath_exporter = ConversableAgent(
-        "FilePathExporter",
-        system_message = "Your name is FilePathDriver. Given a task and a bucket ID, you save the data locally and return the file path for relevant data files using the registered tools. If what you require is not provided, explain your problem. "
-        "You can obtain both MinIO (static data) and InfluxDB (time-series data) file paths through two registered functions by creating the necessary function argument(s). If you retrieve time-series, mention that it will be saved as a CSV file with columns: timestamp, measurement, field and value.",
-        llm_config = current_llm_config,
-        code_execution_config=False,
-        human_input_mode= "ALWAYS" if DEBUG_MODE else "NEVER"
+    filepath_driver = AssistantAgent(
+        name = "filepath_driver",
+        model_client = current_model_client,
+        tools = [timeseries_filepath_tool, static_filepath_tool],
+        description = "An agent that fetches data, saves it locally and returns the file path. ",
+        system_message = """Given a user request, find the bucket associated with the asset of interest and call your tools (timeseries_filepath_tool, static_filepath_tool) to save the data requested and return the file path.
+                            You can obtain MinIO (static data) and InfluxDB (time-series data) file paths through two registered functions by filling the function argument(s).
+                            For time-series data only: use ISO 8601 datetime-local YYYY-MM-DDTHH:mm format for eventual start_time and end_time. """,
+        max_tool_iterations = 1,
+        reflect_on_tool_use = False 
     )
 
-    register_function(
-        getFilepathTimeseries,
-        caller = filepath_exporter,
-        executor = filepath_driver,
-        description = "Returns the file path of data saved from InfluxDB (time-series) given a bucket ID and a time selection."
+    # Code Generator + Executor
+    llm_work_dir = "./downloads"
+    executor =  LocalCommandLineCodeExecutor(timeout = 360, work_dir = llm_work_dir)
+    code_generator = CodeExecutorAgent(
+        name = "code_generator",
+        code_executor = executor,
+        model_client = current_model_client,
+        description = "An agent that generates Python code to analyze files. ",
+        system_message = """Given an user request and a file path, generate Python code to analyze the content of the file on that path. Call main() at the end, then execute the code.
+                            Do not explain the code, only output the code part. Note: For time-series data, the file is a CSV with columns: timestamp, measurement, field and value.
+                            Pre-installed packages: numpy, scapy, pandas, matplotlib, dpkt (for PCAP analysis)."""
     )
 
-    register_function(
-        getFilepathStatic,
-        caller = filepath_exporter,
-        executor = filepath_driver,
-        description = "Returns the file path of object saved from MinIO (static) given a bucket ID."
+    # Output Repeater
+    output_repeater = AssistantAgent(
+        name = "output_repeater",
+        model_client= current_model_client,
+        description = "An agent that gives the output of previous agent to the user.",
+        system_message="Repeat the response of the previous agent and write TERMINATE at the end to finish the conversation. If an error is present, explain it."
     )
 
-    nested_chats_filepath = [
-        {
-            "recipient": filepath_exporter,
-            "max_turns": 2,
-            "summary_method": "last_msg"
-        }
-    ]
+    # Team
+    text_mention_termination = TextMentionTermination("TERMINATE")
+    max_messages_termination = MaxMessageTermination(max_messages=10)
+    termination = text_mention_termination | max_messages_termination
 
-    filepath_driver.register_nested_chats(
-        nested_chats_filepath, 
-        trigger = lambda sender: sender not in [filepath_exporter]
-    )
-
-    # Human proxy to initiate the chat:
-    human_proxy = ConversableAgent(
-        "HumanProxy",
-        llm_config=False,  # no LLM used for human proxy
-        code_execution_config=False,
-        human_input_mode="ALWAYS" if DEBUG_MODE else "NEVER",  # always ask for human input
-    )
-
-    task_planner = ConversableAgent(
-        "TaskPlanner",
-        system_message = "Your name is TaskPlanner. You create detailed plans for specialized agents that you will be introduced to. If not succesful, construct a new plan for the agents that failed. If your plan is succesful, write TERMINATE. If asked for a choice or a reminder, choose wisely and provide all the information needed."
-        "Given a task, break it down into sub-tasks, each of which should be performed by one agent. Not all agents need to participate, it depends on the task."
-        "[CONTEXT] A knowledge graph represents a network topology of assets (ASSET nodes). Agents can access data through the bucket property of data nodes (STATICDATA and DATASOURCE nodes holding information about data stored in MinIO and InfluxDB)."
-        "If the task asks to analyze specific data, file paths to locally downloaded data files can be used when generating code that reads the file and analyzes the content. If the requested data is time-series, the file-path agent needs a time range too. Some tasks only require information of the knowledge graph. ",
-        llm_config = current_llm_config,
-        code_execution_config=False,  # Turn off code execution for this agent.
-        human_input_mode = "ALWAYS"  if DEBUG_MODE else "NEVER"
-    )
-
-
-    code_generator = ConversableAgent("CodeGenerator",
-        llm_config=current_llm_config,
-        system_message = '''
-            Your name is CodeGenerator. You generate Python code, with no explanations. You may be asked to revise previous code later. \
-            You will get a task or revision request, and a path to a file (of a specific type). If not provided, only explain what's missing. \
-            Otherwise, generate one function called solve_task(file_path) that tries to solve the task. If the file content is unknown, investigate it first. \
-            If the task is abstract or ambiguous, you may create multiple conditional branches to cover the possible variations. If task is impossible, write TERMINATE instead of the code. \
-            At the end, include one line of code to call solve_task function. Do not use the __main__ segment! \
-            At the end, always print the result as a presentation to the user. Before printing, make sure the result is short (under 1K tokens) to avoid rate limit errors.  \
-            Assume these dependencies/packages are already installed: numpy, scapy, pandas, matplotlib, dpkt (preferred for PCAP analysis).  \
-        ''',
-        code_execution_config=False,  
-        human_input_mode="ALWAYS" if DEBUG_MODE else "NEVER",  
-        is_termination_msg=lambda msg: "TERMINATE" in msg["content"],
-    )
-
-    # Create an evaluator:
-    output_repeater = ConversableAgent("OutputRepeater",
-        llm_config=current_llm_config,
-        system_message = "Your name is OutputRepeater. Given a task and an answer, respond following one of the two alternatives:\
-                    1. If the answer satisfies the task, repeat the exact answer, and write TERMINATE at the end. Do not add any explanations unless the answer is purely numerical! \
-                    2. If the answer contains an error, does not make sense, or is plainly wrong, repeat the answer and explain the problem.",
-        code_execution_config=False, 
-        human_input_mode="ALWAYS" if DEBUG_MODE else "NEVER",  
-    )
-
-    # Create a local command line code executor.
-    local_executor = LocalCommandLineCodeExecutor(
-    timeout=180,  # Timeout (3 min)
-    work_dir=llm_work_dir,  
-    )
-
-    # Create an agent with code executor configuration.
-    code_executor = ConversableAgent("CodeExecutor",
-        llm_config=False, 
-        code_execution_config={"executor": local_executor}, 
-        human_input_mode="ALWAYS" if DEBUG_MODE else "NEVER",  
-    )
-
-    # Comment out descriptions to use system message instead.
-    task_planner.description = "Provides a plan/sub-tasks for agents, given a task. This agent should be the first to engage and can be re-called to improve previous plans or give more context."
-    graph_operator.description = "Has access to knowledge graph. Generates CYPHER queries and executes them. Can search for bucket IDs. "
-    filepath_driver.description = "Saves data files locally and provides their file path, given a task and a bucket ID."
-    code_generator.description = "Generates Python code, given a task and a file path."
-    code_executor.description = "Executes generated Python code and prints the execution output."
-    output_repeater.description = "Repeats an output/answer and stops the chat if task is solved. This agent should be the last to engage."
-    # human_proxy.description = "Provides additional human input, in case the task is missing information or unclear."
-   
-    allowed_transitions = {
-        task_planner: [graph_operator, code_generator, task_planner, output_repeater, filepath_driver],
-        graph_operator: [filepath_driver, output_repeater, graph_operator, task_planner],
-        filepath_driver: [code_generator, output_repeater, task_planner],
-        code_generator: [code_executor,],
-        code_executor: [output_repeater,],
-        output_repeater: [task_planner, code_generator],
-        # human_proxy: [task_planner, human_proxy],
-    }
-
-    group_chat = GroupChat(agents=[task_planner, graph_operator, filepath_driver, code_generator, code_executor, output_repeater], messages=[], send_introductions = True, allowed_or_disallowed_speaker_transitions=allowed_transitions, speaker_transitions_type="allowed", max_round = 25)
-
-    group_chat_manager = GroupChatManager(
-        groupchat=group_chat,
-        llm_config=current_llm_config,
-        is_termination_msg=lambda msg: "TERMINATE" in msg["content"],
+    def selector_func(messages: Sequence[BaseAgentEvent | BaseChatMessage]) -> str | None:
+        if len(messages) == 1:
+            return "graph_operator"
+        if messages[-1].source == "graph_operator":
+            # If just creating content, just go straight to end of conversation:
+            if "<(CREATION_KEY)>" in messages[-1].to_text():
+                return "output_repeater"
+            # If obtaining content overview, just go straight to end of conversation:
+            elif "<(OVERVIEW_KEY)>" in messages[-1].to_text():
+                return "output_repeater"
+            else:
+                return "filepath_driver"
+        if messages[-1].source == "filepath_driver":
+            if "<(BUCKET_ERROR)>" in messages[-1].to_text():
+                return "output_repeater"
+            else:
+                return "code_generator"
+        if messages[-1].source == "code_generator":
+            return "output_repeater"
+        if messages[-1].source == "output_repeater":
+            return None
+        return None
+    
+    # Create the group chat
+    selector_team = SelectorGroupChat(
+        [graph_operator, filepath_driver, code_generator, output_repeater],
+        model_client=ollama_model_client,
+        selector_func=selector_func,
+        allow_repeated_speaker=False,
+        termination_condition=termination
     )
 
     current_date = datetime.now()
+    full_task = f" Task: {task} | Current date: {current_date}"
     
-    # Time execution: 
-    start_time = time.time() 
-    chat_result = human_proxy.initiate_chat(
-        group_chat_manager,
-        message=f" Task: {task}. Current date: {current_date}",
-        summary_method="reflection_with_llm",
-    )
-    end_time = time.time()
-    exec_time = end_time - start_time
-    # print(f"Execution Time: {execution_time:.4f} seconds")
+    async def run_team_and_collect():
+        start_time = time.time()
+        await selector_team.reset()
+        await executor.start()
+        result_text = ""
+        async for event in selector_team.run_stream(task=full_task):
+            # We only care about chat messages, not internal events
+            if hasattr(event, "source") and getattr(event, "source", "") == "output_repeater":
+                print(event.to_text())
+                result_text += event.to_text()
+            else:
+                if isinstance(event, BaseChatMessage) or isinstance(event, BaseAgentEvent):
+                    print(event.to_text())
+        await executor.stop()
+        await selector_team.reset()
+        end_time = time.time()
+        print(f"(EVALUATION PURPOSES) Execution time: {end_time - start_time:.4f} seconds")
+        return result_text
 
-    # Extract result:
-    """"""
-    result = ""
-    kg = False
-    all_agents = []
-    msg_count = 0
-    generator_loops = 0
-    explorer_loops = 0
-    task_planner_loops = 0
-    driver_loops = 0
-    full_response = ""
-    for message in group_chat.messages:
-        msg_count = msg_count + 1
-        all_agents.append(message['name'])
-        if message['name'] == "OutputRepeater":
-            result = message['content']
-            full_response = full_response + " \n --------NEXT AGENT:--------- " + message['name'] + result
-        elif message['name'] == "GraphOperator":
-            kg = True
-            explorer_loops = explorer_loops + 1
-            full_response = full_response + " \n --------NEXT AGENT:--------- " + message['name'] + message['content']
-        elif message['name'] == "CodeGenerator":
-            generator_loops = generator_loops + 1
-            full_response = full_response + " \n --------NEXT AGENT:--------- " + message['name'] + message['content']
-        elif message['name'] == "TaskPlanner":
-            task_planner_loops = task_planner_loops + 1
-            full_response = full_response + " \n --------NEXT AGENT:--------- " + message['name'] + message['content']
-        elif message['name'] == "GraphExplorer":
-            full_response = full_response + " \n --------NEXT AGENT:--------- " + message['name'] + message['content']
-        elif message['name'] == "CodeExecutor":
-            full_response = full_response + " \n --------NEXT AGENT:--------- " + message['name'] + message['content']
-        elif message['name'] == "FilePathDriver":
-            driver_loops = driver_loops + 1
-            full_response = full_response + " \n --------NEXT AGENT:--------- " + message['name'] + message['content']
-        # print("Msg "+ str(msg_count) + " Name: " + message['name'])
-    # Remove TERMINATE from answer before returning and saving:
-    result = result.replace("TERMINATE", "")
-    response_content = {'result': result}
-    active_agents = set(all_agents)
-    generator_loops = generator_loops if generator_loops >= 2 else 0 # If only used once --> no loops
-    explorer_loops = explorer_loops if explorer_loops >= 2 else 0 # If only used once --> no loops
-    filepathdriver_loops = driver_loops if driver_loops >= 2 else 0 # If used once --> no loops
-    task_planner_loops = task_planner_loops if task_planner_loops >= 2 else 0 # If used once --> no loops
-    usage_summary = gather_usage_summary([human_proxy, task_planner, graph_operator, filepath_driver, code_generator, code_executor, output_repeater])
-    ### LUMEN EXPERIMENTS: task - final answer -  KG (YES/NO) - ACTIVE AGENTS - NUMBER ACTIVE AGENTS - EXEC TIME - LOOPS COUNT for GENERATOR/EXPLORER/TASKPLANNER - TOTAL NUM MESSAGES EXCHANGED - COST  -
-    print("[analytics_api.py] Recording:")
-    print([task, result, kg, active_agents, len(active_agents), exec_time, explorer_loops, generator_loops, task_planner_loops,filepathdriver_loops, msg_count, usage_summary["usage_including_cached_inference"]])
-    record_task_result(task, result, kg, active_agents, len(active_agents), exec_time, explorer_loops, generator_loops, task_planner_loops, filepathdriver_loops, msg_count, usage_summary["usage_including_cached_inference"])
-    # Return the output as JSON:
-    return jsonify(response_content)  
+    # Run async safely
+    result = run_async(run_team_and_collect())
 
-def get_unique_filename(base_path):
-    if not os.path.exists(base_path):
-        return base_path
-    base, ext = os.path.splitext(base_path)
-    counter = 1
-    while True:
-        new_path = f"{base}_({counter}){ext}"
-        if not os.path.exists(new_path):
-            return new_path
-        counter += 1
-
-def record_task_result(task, answer, kg, active_agents, num_active_agents, exec_time, explorer_loops, generator_loops, task_planner_loops, filepathdriver_loops, num_messages, cost):
-    filename = './downloads/lumen_report.csv'
-    unique_filename = get_unique_filename(filename)
-    file_exists = os.path.isfile(unique_filename)
-
-    with open(unique_filename, mode='a', newline='', encoding='utf-8') as file:
-        writer = csv.writer(file, quotechar='"', quoting=csv.QUOTE_MINIMAL)
-        # Automatically creates file with headers if it doesn't exist
-        if not file_exists:
-            writer.writerow(['Task', 'Answer', 'UseKG', 'ActiveAgents', 'NumActiveAgents', 'ExecutionTime', 'GraphExplorerLoops', 'CodeGeneratorLoops', 'TaskPlannerLoops', "FilePathDriverLoops",'NumMessageExchanges','Cost', "SubjSummary"])
-        # Append data
-        writer.writerow([task, answer, kg, active_agents, num_active_agents, exec_time, explorer_loops, generator_loops, task_planner_loops, filepathdriver_loops, num_messages, cost, "\"OK\""])
+    # Cleanup result
+    cleaned_result = result.replace("TERMINATE", "").strip()
+    response_content = {"result": cleaned_result}
+    return jsonify(response_content)
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5002)

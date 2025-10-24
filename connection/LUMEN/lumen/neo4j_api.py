@@ -224,30 +224,31 @@ def neo4j_graph():
             # Adjusted to include relationship details as specified
             new_graph_data.append({
                 "n": {
-                    "identity": int(node1.element_id),
+                    "identity": int(node1.identity),
                     "labels": list(node1.labels),
                     "properties": dict(node1),
-                    "elementId": str(node1.element_id)
+                    "elementId": str(node1.identity)
                 },
                 "r": {
-                    "identity": int(rel.element_id),
-                    "start": int(rel.start_node.element_id),
-                    "end": int(rel.end_node.element_id),
-                    "type": rel.type,
+                    "identity": int(rel.identity),
+                    "start": int(rel.start_node.identity),
+                    "end": int(rel.end_node.identity),
+                    "type": rel.__class__.__name__,
                     "properties": dict(rel),
-                    "elementId": str(rel.element_id),
-                    "startNodeElementId": str(rel.start_node.element_id),
-                    "endNodeElementId": str(rel.end_node.element_id)
+                    "elementId": str(rel.identity),
+                    "startNodeElementId": str(rel.start_node.identity),
+                    "endNodeElementId": str(rel.end_node.identity)
                 },
                 "m": {
-                    "identity": node2.element_id,
+                    "identity": node2.identity,
                     "labels": list(node2.labels),
                     "properties": dict(node2),
-                    "elementId": str(node2.element_id)
+                    "elementId": str(node2.identity)
                 },
             })
         return new_graph_data
     except Exception as e:
+        print("im here")
         print(f"An error occurred: {e}")
         return []
     finally:
@@ -271,28 +272,29 @@ def neo4j_full_graph():
             # Adjusted to include relationship details as specified
             new_graph_data.append({
                 "n": {
-                    "identity": int(node1.element_id),
+                    "identity": int(node1.identity),
                     "labels": list(node1.labels),
                     "properties": dict(node1),
-                    "elementId": str(node1.element_id)
+                    "elementId": str(node1.identity)
                 },
                 "r": {
-                    "identity": int(rel.element_id),
-                    "start": int(rel.start_node.element_id),
-                    "end": int(rel.end_node.element_id),
-                    "type": rel.type,
+                    "identity": int(rel.identity),
+                    "start": int(rel.start_node.identity),
+                    "end": int(rel.end_node.identity),
+                    "type": rel.__class__.__name__,
                     "properties": dict(rel),
-                    "elementId": str(rel.element_id),
-                    "startNodeElementId": str(rel.start_node.element_id),
-                    "endNodeElementId": str(rel.end_node.element_id)
+                    "elementId": str(rel.identity),
+                    "startNodeElementId": str(rel.start_node.identity),
+                    "endNodeElementId": str(rel.end_node.identity)
                 },
                 "m": {
-                    "identity": node2.element_id,
+                    "identity": node2.identity,
                     "labels": list(node2.labels),
                     "properties": dict(node2),
-                    "elementId": str(node2.element_id)
+                    "elementId": str(node2.identity)
                 },
             })
+        print(new_graph_data)
         return new_graph_data
     except Exception as e:
         print(f"An error occurred: {e}")
@@ -300,6 +302,65 @@ def neo4j_full_graph():
     finally:
         None
         # driver.close()
+def neo4j_listen_for_status(topic):
+    # Listen to kafka topic continuously
+    consumer = KafkaConsumer(topic,
+        bootstrap_servers=[config_kafka.get('kafka', 'bootstrap_servers')],
+        security_protocol=config_kafka.get('kafka', 'security_protocol'),
+        sasl_mechanism=config_kafka.get('kafka', 'sasl_mechanism'),
+        sasl_plain_username=config_kafka.get('kafka', 'sasl_plain_username'),
+        sasl_plain_password=config_kafka.get('kafka', 'sasl_plain_password'),
+        auto_offset_reset=config_kafka.get('kafka', 'auto_offset_reset'), 
+        enable_auto_commit=True,        # Automatically commit offsets
+        value_deserializer=lambda x: x.decode('utf-8')  # Deserialize messages to string
+    )
+    # Keep listening indefinitely:
+    try:
+        print(f'[neo4j_api.py] Listening for status messages on topic: {topic}')
+        for message in consumer:
+            message_content = message.value
+            print(f'[neo4j_api.py] Received status message from partition: {message.partition}, offset: {message.offset}')
+            uid_to_status  = parse_status_properties(message_content)
+            # If dict not empty:
+            if uid_to_status:
+                # Iterate the asset uids in dict:
+                for uuid, status in uid_to_status.items():
+                    # Search for ASSET with given uuid and update status
+                    query_status = """
+                    MATCH (asset:ASSET {uid: $uuid})
+                    SET asset.status = $status
+                    RETURN asset
+                    """
+                    # Run the query with parameters using the Neo4j driver:
+                    session = get_py2neo_graph()
+                    print(f"[neo4j_api.py] Updating status of ASSET node with UID {uuid} to {status}.")
+                    session.run(query_status, {"uuid": uuid, "status": status})
+    except KeyboardInterrupt:
+        print("[neo4j_api.py] Consumer stopped from keyboard.")
+    except Exception as e:
+        print(f"[neo4j_api.py] Error processing message: {e}")
+    finally:
+        consumer.close()
+
+def parse_status_properties(message_content):
+    """ Parse Kafka message content containing a list of {uuid, value} dicts into a dictionary mapping uuid -> value. """
+    try:
+        # Decode bytes if necessary
+        if isinstance(message_content, bytes):
+            message_content = message_content.decode("utf-8")
+        data = json.loads(message_content)
+        # Ensure it’s a list of dicts with expected fields
+        if isinstance(data, list):
+            return {item["uuid"]: item["value"] for item in data if "uuid" in item and "value" in item}
+        else:
+            print(f"[neo4j_api.py] Unexpected format: {type(data)} — expected list.")
+            return {}
+    except json.JSONDecodeError as e:
+        print(f"[neo4j_api.py] JSON decode error: {e}")
+        return {}
+    except Exception as e:
+        print(f"[neo4j_api.py] Unexpected error: {e}")
+        return {}
 
 
 def neo4j_listen_for_reactions(topic):
@@ -392,16 +453,28 @@ def neo4j_listen_for_events(topic):
             message_content = message.value
             print(f'[neo4j_api.py] Received event message from partition: {message.partition}, offset: {message.offset}')
             properties  = parse_alarm_properties(message_content) 
+            # Use the src_uid and dst_uid from the parsed properties; if absent, the query might fail.
+            dst_uid = properties.get("dst_asset_uuid")
+            src_uid = properties.get("src_asset_uuid")
+            src_ip = properties.get("src_ip")
             selected_keys = ["attack_uuid", "attack_type", "attack_id", "attack_created", "attack_modified", "simulation"]
             attk_properties = {k: properties[k] for k in selected_keys if k in properties}
-            # New EVENT with the properties fetched from alarm. Related to source ip asset
-            query_event = """
-            MERGE (asset:ASSET {uid: $dst_uid})
-            CREATE (event:EVENT $props)
-            SET event.uid = randomUUID()
-            CREATE (event)-[:Affects]->(asset)
-            RETURN event, asset
+            # TODO: Check if targeted asset is found in the knowledge graph, otherwise ignore the event.
+            query_check_asset = """
+            MATCH (asset:ASSET {uid: $dst_uid})
+            RETURN COUNT(asset) > 0 AS asset_exists
             """
+            session = get_py2neo_graph()
+            result = session.run(query_check_asset, {"dst_uid": dst_uid})
+            asset_exists = result.evaluate()
+            if asset_exists:                # New EVENT with the properties fetched from alarm. Related to source ip asset
+                query_event = """
+                MERGE (asset:ASSET {uid: $dst_uid})
+                CREATE (event:EVENT $props)
+                SET event.uid = randomUUID()
+                CREATE (event)-[:Affects]->(asset)
+                RETURN event, asset
+                """
             # Use the src_uid and dst_uid from the parsed properties; if absent, the query might fail.
             dst_uid = properties.get("dst_asset_uuid")
             src_uid = properties.get("src_asset_uuid")
@@ -418,36 +491,60 @@ def neo4j_listen_for_events(topic):
                 CREATE (attk)-[:Attacks]->(asset)
                 RETURN attk, asset
                 """
-                # Run the query with parameters using the Neo4j driver:
-                # with driver.session() as session:
-                session =  get_py2neo_graph()
-                print(f"[neo4j_api.py] Creating EVENT node, and linking to ASSET node with UID: {dst_uid}")
-                session.run(query_event, dst_uid=dst_uid, props=properties)
-                print(f"[neo4j_api.py] Creating ATTACKER node and linking to ASSET node with UID: {dst_uid}")
-                session.run(query_attack, dst_uid=dst_uid, src_ip=src_ip, attk_props=attk_properties)
-            else:
-                # New ATTACKER with ip of src_ip and reused uuid. Links to target asset
-                query_attack = """
-                MERGE (asset:ASSET {uid: $dst_uid})
-                MERGE (attk:ATTACKER {uid: $src_uid})
-                ON CREATE SET attk.ip = $src_ip, attk += $attk_props
-                MERGE (attk)-[:Attacks]->(asset)
-                RETURN attk, asset
-                """
-                # Run the query with parameters using the Neo4j driver:
-                # with driver.session() as session:
                 session = get_py2neo_graph()
                 print(f"[neo4j_api.py] Creating EVENT node, and linking to ASSET node with UID: {dst_uid}")
-                session.run(query_event, dst_uid=dst_uid, props=properties)
+                result = session.run(query_event, dst_uid=dst_uid, props=properties)
+                record = result.evaluate()  # Get the first returned record
+                if record:
+                    event_uid = record["event_uid"]
+                    print(f"[neo4j_api.py] Created EVENT node with UID: {event_uid}")
+                else:
+                    event_uid = None
+                    print("[neo4j_api.py] No EVENT node created or returned.")
+                # Check if attacker (identified by src_uid) is already present in KG: 
+                query_check_attacker = """
+                    MATCH (n)
+                    WHERE (n:ASSET OR n:ATTACKER) AND n.uid = $src_uid
+                    RETURN COUNT(n) > 0 AS attacker_exists
+                """
+                session = get_py2neo_graph()
+                result = session.run(query_check_attacker, {"src_uid": src_uid})
+                attacker_exists = result.evaluate()
+                if attacker_exists:
+                    query_attack = """
+                        MERGE (asset:ASSET {uid: $dst_uid})
+                        MERGE (event:EVENT {uid: $event_uid})
+                        MERGE (attk:ATTACKER {uid: $src_uid})
+                        ON CREATE SET attk.ip = $src_ip, attk += $attk_props
+                        MERGE (attk)-[:Attacks]->(asset)
+                        MERGE (attk)-[:Produces]->(event)
+                        RETURN attk, asset
+                    """
+                    # session.run(query_attack, dst_uid=dst_uid, src_ip=src_ip, attk_props=attk_properties)
+                else:
+                    # New ATTACKER with ip of src_ip and generated uuid. Links to target asset
+                    query_attack = """
+                        MERGE (asset:ASSET {uid: $dst_uid})
+                        MERGE (event:EVENT {uid: $event_uid})
+                        CREATE (attk:ATTACKER $attk_props)
+                        SET attk.ip = $src_ip
+                        SET attk.uid = apoc.create.uuid()
+                        CREATE (attk)-[:Attacks]->(asset)
+                        CREATE (attk)-[:Produces]->(event)
+                        RETURN attk, asset
+                    """
+                # Run the query with parameters using the Neo4j driver:
+                session = driver.session()
                 print(f"[neo4j_api.py] Creating ATTACKER node and linking to ASSET node with UID: {dst_uid}")
-                session.run(query_attack, dst_uid=dst_uid, src_ip=src_ip, src_uid=src_uid, attk_props=attk_properties)
+                session.run(query_attack, dst_uid=dst_uid, src_ip=src_ip, src_uid=src_uid, attk_props=attk_properties, event_uid=event_uid)
+            else:
+                print(f"[neo4j_api.py] EVENT recorded but skipped due to no ASSET being found with uid: {dst_uid}")
     except KeyboardInterrupt:
         print("[neo4j_api.py] Consumer stopped from keyboard.")
     except Exception as e:
         print(f"[neo4j_api.py] Error processing message: {e}")
     finally:
         consumer.close()
-
 def parse_alarm_properties(message_content):
     """
     Parses a STIX alert message and extracts properties.
@@ -803,11 +900,11 @@ def neo4j_add_relation():
         source_labels = session.run(
             "MATCH (n {uid: $uid}) RETURN labels(n) AS labels",
             {"uid": source_uid}
-        ).single()["labels"]
+        ).evaluate()
         target_labels = session.run(
             "MATCH (n {uid: $uid}) RETURN labels(n) AS labels",
             {"uid": target_uid}
-        ).single()["labels"]
+        ).evaluate()
         # Step 2: Determine relationship type
         if "ASSET" in source_labels:
             relation_type = "ConnectTo"
@@ -825,6 +922,8 @@ def neo4j_add_relation():
                 relation_type = "Attacks"
             elif "CONSEQUENCE" in target_labels:
                 relation_type = "Causes"
+            elif "EVENT" in target_labels:
+                relation_type = "Produces"
             else:
                 relation_type = "Attacks"
         elif "THREAT" in source_labels:
@@ -917,3 +1016,15 @@ if __name__ == '__main__':
     print(f'[neo4j_api.py] Listener on SOAR4BC reactions starting...')  
     listener_thread_reaction.start()
     app.run(host="0.0.0.0", port=5001, debug=True, use_reloader=False)
+    #________UNCOMMENT FOR KAFKA INTEGRATION_________:
+    if config_kafka.has_option('kafka', f"uc{uc}_status"): # Only UC=2 will trigger this 
+        uc_status_topic = config_kafka.get('kafka', f"uc{uc}_status")
+        if uc_status_topic:  
+            listener_thread_status = Thread(target=neo4j_listen_for_status, args=(uc_status_topic,))
+            print(f'[neo4j_api.py] Listener on asset status starting...')  
+            listener_thread_status.start()
+        else: 
+            print("[neo4j_api.py] No topic found: Set correct UC status topic in kafka_config.ini file.")
+    else:
+        print(f"[neo4j_api.py] No uc{uc}_status found in kafka config.")
+    app.run(host="0.0.0.0", port=5001)

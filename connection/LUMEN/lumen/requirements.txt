@@ -16,5 +16,9 @@ matplotlib
 numpy
 python-magic
 kafka-python
-autogen-agentchat==0.2.38
 py2neo==2021.2.4
+autogen-agentchat==0.7.5
+autogen-ext[openai]
+autogen-ext[ollama]
+autogen-ext[docker]
+nest-asyncio

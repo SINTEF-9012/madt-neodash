@@ -1,8 +1,8 @@
-FROM python:3.9
+FROM python:3.10.18
 
 # Create and set the working directory
 WORKDIR /usr/lumen
-
+RUN pip install --upgrade pip
 
 # Copy requirements.txt. 
 COPY ./requirements.txt ./requirements.txt
