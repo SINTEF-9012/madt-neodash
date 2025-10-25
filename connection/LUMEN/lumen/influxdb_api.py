@@ -7,7 +7,7 @@ import csv
 import os
 import json
 from kafka import KafkaConsumer, OffsetAndMetadata, TopicPartition
-from threading import Thread
+from threading import Thread, Event
 import configparser
 import time
 
@@ -17,6 +17,12 @@ config_kafka.read('kafka_config.ini')
 
 config_influxdb = configparser.ConfigParser()
 config_influxdb.read('influxdb_config.ini')
+
+# Global variables
+mapping_path = os.path.join("downloads", "topic_mapping.json")
+mapping_stop_event = Event()
+mapping_listener_threads = {}
+last_mapping_content = ""
 
 app = Flask(__name__)
 
@@ -34,30 +40,107 @@ def add_cors_headers(response):
 def apply_cors(response):
     return add_cors_headers(response)
 
+def load_mapping_file():
+    """Loads the mapping JSON file and returns its contents and raw string."""
+    if not os.path.exists(mapping_path):
+        print("[influxdb_api.py] topic_mapping.json not found.")
+        return {}, ""
+    with open(mapping_path, "r") as f:
+        content = f.read().strip()
+        try:
+            data = json.loads(content)
+        except json.JSONDecodeError:
+            print("[influxdb_api.py] Invalid JSON in mapping file.")
+            return {}, content
+    return data, content
+
+def stop_influx_listeners():
+    """Stops all running influxdb_realtime_upload threads."""
+    global mapping_listener_threads
+    if not mapping_listener_threads:
+        return
+    print("[influxdb_api.py] Stopping all active InfluxDB upload listeners...")
+    for topic_uid, thread_info in mapping_listener_threads.items():
+        stop_event = thread_info["stop_event"]
+        stop_event.set()
+    for topic_uid, thread_info in mapping_listener_threads.items():
+        thread = thread_info["thread"]
+        thread.join(timeout=5)
+        print(f"[influxdb_api.py] Listener {topic_uid} stopped.")
+    mapping_listener_threads.clear()
+
+def start_influx_listeners(topic_uid_dict):
+    """Starts influxdb_realtime_upload threads for each topic/uid pair."""
+    global mapping_listener_threads
+    print("[influxdb_api.py] Starting new InfluxDB listeners...")
+    for topic, uid_list in topic_uid_dict.items():
+        for uid in uid_list:
+            stop_event = Event()
+            thread = Thread(target=influxdb_realtime_upload, args=(topic, uid, stop_event))
+            thread.start()
+            mapping_listener_threads[(topic, uid)] = {"thread": thread, "stop_event": stop_event}
+            print(f"[influxdb_api.py] Listener started for topic={topic}, uid={uid}")
+
+def watch_topic_mapping():
+    """Continuously watches the mapping file and restarts listeners when content changes."""
+    global last_mapping_content
+    print("[influxdb_api.py] Watching topic_mapping.json for changes...")
+    while not mapping_stop_event.is_set():
+        topic_uid_dict, new_content = load_mapping_file()
+        if new_content and new_content != last_mapping_content:
+            print("[influxdb_api.py] 🔄 topic_mapping.json content changed — reloading listeners...")
+            last_mapping_content = new_content
+            stop_influx_listeners()
+            if topic_uid_dict:
+                start_influx_listeners(topic_uid_dict)
+            else:
+                print("[influxdb_api.py] Mapping file empty or invalid.")
+        time.sleep(5)  # Check every 10 seconds
+
 def get_unique_filepath(directory, filename):
     base, ext = os.path.splitext(filename)
     file_path = os.path.join(directory, filename)
-    
     counter = 1
     # Keep checking until the filename is unique
     while os.path.exists(file_path):
         new_filename = f"{base}_{counter}{ext}"
         file_path = os.path.join(directory, new_filename)
         counter += 1
-    
     return file_path
+
+
+def normalize_time(t: str) -> str:
+    # Ensure 'Z' at the end for UTC; add seconds if missing
+    if not t.endswith("Z"):
+        if len(t.split(":")) == 2:  # only hours and minutes
+            t += ":00Z"
+        elif len(t.split(":")) == 3 and not t.endswith("Z"):
+            t += "Z"
+    return t
+
 
 @app.route('/influxdb_download_data', methods=['GET'])
 def influxdb_download_data():
     bucket_id = request.args.get('endpoint')
     start_time = request.args.get('start')
     end_time = request.args.get('end')
+    
+    # Check if bucket is valid:
+    buckets_api = client.buckets_api()
+    bucket_list = buckets_api.find_buckets().buckets
+    bucket_names = [bucket.name for bucket in bucket_list]
+    if bucket_id not in bucket_names:
+        print(f"[influxdb_api.py] Bucket {bucket_id} not found.")
+        return jsonify({
+            'error': 'InfluxDB API error',
+        }), 500 
+
     print("[influxdb_api.py] InfluxDB processes query from asset with uid " + bucket_id)
     query_api = client.query_api()
 
     # TODO Convert date format to compatible one (Obs: UTC, if not UTC -> adjust!)
-    converted_start_time = start_time + ":00Z"
-    converted_end_time = end_time + ":00Z"
+    converted_start_time = normalize_time(start_time) #f"{start_time}:00Z"
+    converted_end_time = normalize_time(end_time) #f"{end_time}:00Z"
 
     # Complete Flux query
     query = f"""
@@ -66,57 +149,52 @@ def influxdb_download_data():
     """
     print(query)
 
-    # Execute the query
-    result = query_api.query(org=config_influxdb.get("influxdb", "INFLUXDB_ORG"), query=query)
-
-    # Define the CSV file path
-    file_path = './downloads'
-
-    if not os.path.exists(file_path):
-        os.makedirs(file_path)
-
-    filename = "influxdb_outputs.csv"
-
-    file_path = get_unique_filepath(file_path, filename)
-
-    #file_path = os.path.join(file_path, "influxdb_outputs.csv")
-
-    # Open a file to write and save locally
-    with open(file_path, mode='w', newline='') as file:
-        fieldnames = ['timestamp', 'measurement', 'field', 'value']
-        writer = csv.DictWriter(file, fieldnames=fieldnames)
-
-        # Write the header
-        writer.writeheader()
-
-        # Process and write data to CSV
+    try:
+        # Execute the query
+        result = query_api.query(org=config_influxdb.get("influxdb", "INFLUXDB_ORG"), query=query)
+        # Define the CSV file path
+        file_path = './downloads'
+        if not os.path.exists(file_path):
+            os.makedirs(file_path)
+        filename = "influxdb_outputs.csv"
+        file_path = get_unique_filepath(file_path, filename)
+        #file_path = os.path.join(file_path, "influxdb_outputs.csv")
+        # Open a file to write and save locally
+        with open(file_path, mode='w', newline='') as file:
+            fieldnames = ['timestamp', 'measurement', 'field', 'value']
+            writer = csv.DictWriter(file, fieldnames=fieldnames)
+            # Write the header
+            writer.writeheader()
+            # Process and write data to CSV
+            for table in result:
+                for record in table.records:
+                    writer.writerow({
+                        "timestamp": record.get_time(),
+                        "measurement": record.get_measurement(),
+                        "field": record.get_field(),
+                        "value": record.get_value(),
+                    })
+        # Process the results
+        output = []
         for table in result:
             for record in table.records:
-                writer.writerow({
+                output.append({
                     "timestamp": record.get_time(),
                     "measurement": record.get_measurement(),
                     "field": record.get_field(),
                     "value": record.get_value(),
-                })
-
-    # Process the results
-    output = []
-    for table in result:
-        for record in table.records:
-            output.append({
-                "timestamp": record.get_time(),
-                "measurement": record.get_measurement(),
-                "field": record.get_field(),
-                "value": record.get_value(),
-           })
-
-    # Close the client
-    # client.close()
-    print("[influxdb_api.py] InfluxDB query request processed for asset with id " + bucket_id)
-    return jsonify({
-        'file_path': file_path,
-        'filename' : os.path.basename(file_path),
-        'output': output})
+            })
+        # Close the client
+        # client.close()
+        print("[influxdb_api.py] InfluxDB query request processed for asset with id " + bucket_id)
+        return jsonify({
+            'file_path': file_path,
+            'filename' : os.path.basename(file_path),
+            'output': output})
+    except Exception as e:
+        print(f"[influxdb_api.py] Unexpected error: {e}")
+        return jsonify({'error': str(e)}), 500
+    
 
 @app.route('/influxdb_add_bucket', methods=['POST'])
 def influxdb_add_bucket():
@@ -305,8 +383,14 @@ def influxdb_upload_message(message, uid, topic):
     # If bucket not already present for UID, create in InfluxDB
     check_and_create_bucket(uid) 
     # Parse message:
+    try:
+        # Try to parse as JSON
+        data_dict = json.loads(message)
+    except json.JSONDecodeError as e:
+        data_dict = {
+            "message": message,
+        }
     point = Point(topic)
-    data_dict = json.loads(message)
     if "metricbeat" in topic:
         # print("[influxdb_api.py] Writing metricbeat message ...")
         metricbeat_data_parser(data_dict, point) # Use timestamp within metricbeat
@@ -328,33 +412,28 @@ def influxdb_upload_message(message, uid, topic):
     write_api.write(bucket=uid, record=point)
     write_api.close()
 
-def influxdb_realtime_upload(topic, uid):
+def influxdb_realtime_upload(topic, uid, stop_event):
     print(f'[influxdb_api.py] Listening on topic {topic} ...')
     consumer = KafkaConsumer( topic, 
-        bootstrap_servers=[config_kafka.get('kafka', 'bootstrap_servers')], # REALTIME: Add topic too
+        bootstrap_servers=[config_kafka.get('kafka', 'bootstrap_servers')], 
         security_protocol=config_kafka.get('kafka', 'security_protocol'),
         sasl_mechanism=config_kafka.get('kafka', 'sasl_mechanism'),
         sasl_plain_username=config_kafka.get('kafka', 'sasl_plain_username'),
         sasl_plain_password=config_kafka.get('kafka', 'sasl_plain_password'),
-        auto_offset_reset=config_kafka.get('kafka', 'auto_offset_reset'),  # Start reading at the earliest/latest message
-        enable_auto_commit=True,        # REALTIME SET True else False
-        value_deserializer=lambda x: x.decode('utf-8')  # Deserialize messages to string
+        auto_offset_reset=config_kafka.get('kafka', 'auto_offset_reset'),  
+        enable_auto_commit=True,        
+        value_deserializer=lambda x: x.decode('utf-8') 
     )
-    #tp = TopicPartition(topic, 0)            # REALTIME --> Comment out this part
-    #consumer.assign([tp])                    # REALTIME --> Comment out this part
-    #consumer.seek_to_end(tp)                 # REALTIME --> Comment out this part
-    #consumer.poll(timeout_ms=1000)           # Important!
-    #last_offset = consumer.position(tp) - 1  # REALTIME --> Comment out this part
-    #if last_offset >= 0:                     # REALTIME --> Comment out this part
-    #    consumer.seek(tp, last_offset)       # REALTIME --> Comment out this part
-    #   ...
-    #else:
-    #    print(f'No messages found in topic {topic}.')  # REALTIME --> Comment out this part
     try:
-        for message in consumer:
+        while not stop_event.is_set():
+            records = consumer.poll(timeout_ms=1000)
+            for tp, batch in records.items():
+                for message in batch:
+                    influxdb_upload_message(message.value, uid, topic)
+        #for message in consumer:
             # print(f'[influxdb_api.py] Uploading new message to bucket {uid} ...')
             # print(f'Received message: {message.value}')
-            influxdb_upload_message(message.value, uid, topic)
+            # influxdb_upload_message(message.value, uid, topic)
     except Exception as e:
         print(f'[influxdb_api.py] Error encountered for realtime upload to bucket {uid}. Error: {e}')
     finally:
@@ -362,28 +441,14 @@ def influxdb_realtime_upload(topic, uid):
         print(f'[influxdb_api.py] Consumer closed for topic {topic}.')
 
 if __name__ == '__main__':
-    # UNCOMMENT FOR KAFKA INTEGRATION:
-    time.sleep(60)  # Sleeps initially to allow mapping process to finish
-    # uc = config_kafka.get('kafka', 'uc')
-    # uc_topic_mapping = "uc" + str(uc) + "_topic_mapping"
-    # topic_uid_dict = json.loads(config_kafka['kafka'][uc_topic_mapping])
-    # Path to topic_mapping.json in Downloads
-    mapping_path = os.path.join("downloads", "topic_mapping.json")
-    # Load the mapping file
-    if os.path.exists(mapping_path):
-        with open(mapping_path, "r") as f:
-            topic_uid_dict = json.load(f)
+    time.sleep(60)  # Give time for mapping creation
+    topic_uid_dict, last_mapping_content = load_mapping_file()
+    if topic_uid_dict:
+        start_influx_listeners(topic_uid_dict)
     else:
-        print("[neo4j_api.py] Warning: topic_mapping.json not found in downloads.")
-        topic_uid_dict = {}
-    if len(topic_uid_dict.items()) != 0 :
-        for topic, uid_list in topic_uid_dict.items():
-            for uid in uid_list:
-                listener_thread = Thread(target=influxdb_realtime_upload, args=(topic,uid,))
-                print(f'[influxdb_api.py] Listener for data collection starting for topic {topic} ...')
-                listener_thread.start()
-    else:
-        print("[influxdb_api.py] No topic mapping.")
+        print("[influxdb_api.py] No initial mapping found or file empty.")
+    watcher_thread = Thread(target=watch_topic_mapping, daemon=True)
+    watcher_thread.start()
     app.run(host="0.0.0.0", debug=False, port=4999)
     
 

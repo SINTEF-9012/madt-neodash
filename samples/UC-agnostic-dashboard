@@ -18,10 +18,21 @@
         "title": "Digital Twin",
         "reports": [
           {
+            "title": "Card: Choose UC",
+            "query": "MATCH (n) RETURN n UNION RETURN null AS n LIMIT 1",
+            "width": 3,
+            "height": 1,
+            "x": 0,
+            "y": 0,
+            "type": "selection",
+            "selection": {},
+            "settings": {}
+          },
+          {
             "title": "Card: Event Report",
             "query": "MATCH (n) RETURN n UNION RETURN null AS n LIMIT 1",
             "width": 3,
-            "height": 3,
+            "height": 2,
             "x": 0,
             "y": 0,
             "type": "event",

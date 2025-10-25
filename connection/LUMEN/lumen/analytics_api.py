@@ -153,22 +153,26 @@ def analytics_generate_and_run_code():
         try:
             query = """
             MATCH (n)
-            WHERE NOT n:EVENT
+            WITH n LIMIT 100
             OPTIONAL MATCH (n)-[r]->(m)
-            WHERE NOT m:EVENT
             RETURN
                 collect(DISTINCT {
                     id: id(n),
                     labels: labels(n),
                     properties: properties(n)
-                }) AS nodes,
+                }) AS n_nodes,
                 collect(DISTINCT {
                     id: id(r),
                     type: type(r),
                     start: id(startNode(r)),
                     end: id(endNode(r)),
                     properties: properties(r)
-                }) AS relationships
+                }) AS relationships,
+                collect(DISTINCT {
+                    id: id(m),
+                    labels: labels(m),
+                    properties: properties(m)
+                }) AS m_nodes
             """
             # Call the Neo4j API via create_content()
             raw_result = await create_content(query)
@@ -288,18 +292,19 @@ def analytics_generate_and_run_code():
         name = "code_generator",
         code_executor = executor,
         model_client = current_model_client,
-        description = "An agent that generates Python code to analyze files. ",
-        system_message = """Given an user request and a file path, generate Python code to analyze the content of the file on that path. Call main() at the end, then execute the code.
-                            Do not explain the code, only output the code part. Note: For time-series data, the file is a CSV with columns: timestamp, measurement, field and value.
-                            Pre-installed packages: numpy, scapy, pandas, matplotlib, dpkt (for PCAP analysis)."""
+        description = "An agent that generates Python code to read and print the file content. ",
+        system_message = """Given a file path, generate Python code to print the content of the file on that path. Call main() at the end, then execute the code. Do not explain the code, only output the code.
+                            Note: For time-series data, the file is a CSV with columns: timestamp, measurement, field and value. Never filter CSVs. Generate code without structural assumptions. 
+                            Pre-installed packages: numpy, scapy, pandas, matplotlib, dpkt (for PCAP files).""",
+        model_context=BufferedChatCompletionContext(buffer_size=2),
     )
 
     # Output Repeater
     output_repeater = AssistantAgent(
         name = "output_repeater",
         model_client= current_model_client,
-        description = "An agent that gives the output of previous agent to the user.",
-        system_message="Repeat the response of the previous agent and write TERMINATE at the end to finish the conversation. If an error is present, explain it."
+        description = "An agent that presents the execution results to the user.",
+        system_message="Present the execution result and write TERMINATE at the end to finish the conversation."
     )
 
     # Team

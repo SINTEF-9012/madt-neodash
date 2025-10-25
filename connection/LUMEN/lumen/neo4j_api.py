@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from neo4j import GraphDatabase
 from kafka import KafkaProducer, KafkaConsumer
-from threading import Thread
+from threading import Thread, Event
 import configparser
 import json
 import time
@@ -21,8 +21,11 @@ config_neo4j = configparser.ConfigParser()
 config_neo4j.read('neo4j_config.ini')
 
 # Global graph data
+UC = 0  # Default 0 - no UC
 graph_data = []
 full_graph_data = []
+listener_threads = {}
+stop_events = {}
 
 app = Flask(__name__)
 
@@ -39,6 +42,71 @@ def add_cors_headers(response):
 @app.after_request
 def apply_cors(response):
     return add_cors_headers(response)
+
+def start_listeners(uc: int):
+    """Start all Kafka listeners for the given UC number."""
+    global listener_threads, stop_events, UC
+    # If no UC chosen: 
+    if UC == 0:
+        print(f"[neo4j_api.py] No UC selected yet. Waiting on selection ...")
+        return
+    # Define all topics for this UC
+    uc_topic = config_kafka.get('kafka', f"uc{uc}_madt_topic")
+    uc_full_topic = config_kafka.get('kafka', f"uc{uc}_madt_topic_complete_kg")
+    uc_events_topic = config_kafka.get('kafka', f"uc{uc}_events_topic")
+    uc_reaction_topic = config_kafka.get('kafka', f"uc{uc}_soar_response")        
+    # Create stop events for graceful shutdown
+    stop_events = {
+        "graph": Event(),
+        "events": Event(),
+        "reaction": Event(),
+        "status": Event(),
+    }
+    # Create and start each listener thread
+    listener_threads = {
+        "graph": Thread(target=neo4j_listen_for_changes, args=([uc_topic, uc_full_topic], stop_events["graph"])),
+        "events": Thread(target=neo4j_listen_for_events, args=(uc_events_topic, stop_events["events"])),
+        "reaction": Thread(target=neo4j_listen_for_reactions, args=(uc_reaction_topic, stop_events["reaction"])),
+    }
+    # Only UC=2 has status topic
+    if uc == 2:
+        uc_status_topic = config_kafka.get('kafka', f"uc{uc}_status")
+        listener_threads["status"] = Thread(target=neo4j_listen_for_status, args=(uc_status_topic, stop_events["status"]))
+    for name, thread in listener_threads.items():
+        thread.start()
+        print(f"[neo4j_api.py] Listener thread '{name}' started for UC{uc}")
+
+
+def stop_listeners():
+    """Stop all running Kafka listener threads gracefully."""
+    global stop_events, listener_threads
+    if not listener_threads:
+        return
+    print("[neo4j_api.py] Stopping all listener threads...")
+    # Signal all threads to stop
+    for event in stop_events.values():
+        event.set()
+    # Wait for all threads to exit
+    for name, thread in listener_threads.items():
+        thread.join(timeout=5)
+        print(f"[neo4j_api.py] Listener '{name}' stopped.")
+    listener_threads.clear()
+    stop_events.clear()
+
+@app.route('/neo4j_update_uc', methods=['POST'])
+def neo4j_update_uc():
+    global UC
+    data = request.json
+    try:
+        new_uc = int(data["uc"])
+        if new_uc != UC:
+            stop_listeners()   # Stop current listeners
+            UC = new_uc
+            start_listeners(UC)  # Start new listeners
+            print(f"[neo4j_api.py] --> UC changed to {UC}, listeners restarted.")
+        return jsonify({"status": "success", "message": f"UC updated to {UC}"}), 200
+    except (ValueError, TypeError):
+        return jsonify({"status": "error", "message": "UC value must be an integer"}), 400
 
 @app.route('/neo4j_update_url', methods=['POST'])
 def neo4j_update_url():
@@ -277,7 +345,7 @@ def neo4j_full_graph():
         driver.close()
 
 
-def neo4j_listen_for_status(topic):
+def neo4j_listen_for_status(topic, stop_event):
     # Listen to kafka topic continuously
     consumer = KafkaConsumer(topic,
         bootstrap_servers=[config_kafka.get('kafka', 'bootstrap_servers')],
@@ -293,6 +361,9 @@ def neo4j_listen_for_status(topic):
     try:
         print(f'[neo4j_api.py] Listening for status messages on topic: {topic}')
         for message in consumer:
+            if stop_event.is_set():
+                print("[neo4j_api.py] Stopping listener: status")
+                break
             message_content = message.value
             print(f'[neo4j_api.py] Received status message from partition: {message.partition}, offset: {message.offset}')
             uid_to_status  = parse_status_properties(message_content)
@@ -338,7 +409,7 @@ def parse_status_properties(message_content):
         return {}
 
 
-def neo4j_listen_for_reactions(topic):
+def neo4j_listen_for_reactions(topic, stop_event):
 # Listen to kafka topic continuously
     consumer = KafkaConsumer(topic,
         bootstrap_servers=[config_kafka.get('kafka', 'bootstrap_servers')],
@@ -354,6 +425,9 @@ def neo4j_listen_for_reactions(topic):
     try:
         print(f'[neo4j_api.py] Listening for messages on topic: {topic}')
         for message in consumer:
+            if stop_event.is_set():
+                print("[neo4j_api.py] Stopping listener: reaction")
+                break
             message_content = message.value
             print(f'[neo4j_api.py] Received reaction message from partition: {message.partition}, offset: {message.offset}')
             properties  = parse_reaction_properties(message_content)
@@ -408,7 +482,7 @@ def parse_reaction_properties(message_content):
     return properties
 
 
-def neo4j_listen_for_events(topic):
+def neo4j_listen_for_events(topic, stop_event):
     # Listen to kafka topic continuously
     consumer = KafkaConsumer(topic,
         bootstrap_servers=[config_kafka.get('kafka', 'bootstrap_servers')],
@@ -424,6 +498,9 @@ def neo4j_listen_for_events(topic):
     try:
         print(f'[neo4j_api.py] Listening for messages on topic: {topic}')
         for message in consumer:
+            if stop_event.is_set():
+                print("[neo4j_api.py] Stopping listener: status")
+                break
             message_content = message.value
             print(f'[neo4j_api.py] Received event message from partition: {message.partition}, offset: {message.offset}')
             properties  = parse_alarm_properties(message_content)
@@ -675,15 +752,31 @@ def neo4j_update_topic_mapping():
     print(f"[neo4j_api.py] topic_mapping written to {output_path}")
 
 
-def neo4j_listen_for_changes(topics):
-    print(f'[neo4j_api.py] Checking for changes in knowledge graph...')
-    # Fetch current graph: 
-    current_graph = neo4j_graph() 
-    current_full_graph = neo4j_full_graph()
-    neo4j_graph_update(current_graph, topic = topics[0], asset_only = True)
-    neo4j_graph_update(current_full_graph, topic = topics[1], asset_only = False)
-    time.sleep(60) # Check each 1 MIN for updates to KG
-    neo4j_listen_for_changes(topics) # Indefinite process
+def neo4j_listen_for_changes(topics, stop_event):
+    """
+    Periodically checks the Neo4j knowledge graph for changes and publishes updates to Kafka.
+    Stops gracefully when stop_event is set.
+    """
+    print(f'[neo4j_api.py] Listening for knowledge graph changes on topics: {topics}')
+
+    try:
+        while not stop_event.is_set():
+            print('[neo4j_api.py] Checking for changes in knowledge graph...')
+            current_graph = neo4j_graph()
+            current_full_graph = neo4j_full_graph()
+            # Publish updates to Kafka
+            neo4j_graph_update(current_graph, topic=topics[0], asset_only=True)
+            neo4j_graph_update(current_full_graph, topic=topics[1], asset_only=False)
+            # Sleep before next check
+            for _ in range(10): 
+                if stop_event.is_set():
+                    print('[neo4j_api.py] Stop signal received (changes listener). Exiting...')
+                    return
+                time.sleep(1)
+    except Exception as e:
+        print(f"[neo4j_api.py] Error in neo4j_listen_for_changes: {e}")
+    finally:
+        print('[neo4j_api.py] Exiting neo4j_listen_for_changes loop cleanly.')
 
 
 @app.route('/neo4j_create_attacker', methods=['POST'])
@@ -943,34 +1036,5 @@ def neo4j_events():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    # _______ UNCOMMENT FOR KAFKA INTEGRATION________:
-    uc = config_kafka.get('kafka', 'uc')
-    uc_topic = "uc" + str(uc) + "_madt_topic"
-    uc_full_topic = "uc" + str(uc) + "_madt_topic_complete_kg"
-    madt_topic = config_kafka.get('kafka', uc_topic)
-    madt_full_topic = config_kafka.get('kafka', uc_full_topic)
-    listener_thread_graph = Thread(target=neo4j_listen_for_changes, args=([madt_topic, madt_full_topic],))
-    print(f'[neo4j_api.py] Listener on KG topic starting...')  
-    listener_thread_graph.start()
-    #________UNCOMMENT FOR KAFKA INTEGRATION_________:
-    uc_events_topic = config_kafka.get('kafka',  "uc" + str(uc) + '_events_topic')
-    listener_thread_events = Thread(target=neo4j_listen_for_events, args=(uc_events_topic,))
-    print(f'[neo4j_api.py] Listener on AWARE4BC alerts starting...')  
-    listener_thread_events.start()
-    #________UNCOMMENT FOR KAFKA INTEGRATION_________:
-    uc_reaction_topic = config_kafka.get('kafka',  "uc" + str(uc) + '_soar_response')
-    listener_thread_reaction = Thread(target=neo4j_listen_for_reactions, args=(uc_reaction_topic,))
-    print(f'[neo4j_api.py] Listener on SOAR4BC reactions starting...')  
-    listener_thread_reaction.start()
-    #________UNCOMMENT FOR KAFKA INTEGRATION_________:
-    if config_kafka.has_option('kafka', f"uc{uc}_status"): # Only UC=2 will trigger this 
-        uc_status_topic = config_kafka.get('kafka', f"uc{uc}_status")
-        if uc_status_topic:  
-            listener_thread_status = Thread(target=neo4j_listen_for_status, args=(uc_status_topic,))
-            print(f'[neo4j_api.py] Listener on asset status starting...')  
-            listener_thread_status.start()
-        else: 
-            print("[neo4j_api.py] No topic found: Set correct UC status topic in kafka_config.ini file.")
-    else:
-        print(f"[neo4j_api.py] No uc{uc}_status found in kafka config.")
+    start_listeners(UC)
     app.run(host="0.0.0.0", port=5001)
