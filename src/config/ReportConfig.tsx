@@ -21,6 +21,7 @@ import CountChart from '../chart/count/CountChart';
 import RealtimeDataChart from '../chart/realtime/RealtimeDataChart';
 import DesignChart from '../chart/design/DesignChart';
 import EventChart from '../chart/event/EventChart';
+import SelectionChart from '../chart/selection/SelectionChart';
 
 // TODO: make the reportConfig a interface with not self-documented code
 // Use Neo4j 4.0 subqueries to limit the number of rows returned by overriding the query.
@@ -1327,6 +1328,13 @@ export const REPORT_TYPES = {
     label: "Event",
     helperText: "I allow mapping events in the graph database.",
     component: EventChart,
+    maxRecords: 1000,
+    settings: {}
+  },
+  selection: {
+    label: "Selection",
+    helperText: "I allow selecting the UC.",
+    component: SelectionChart,
     maxRecords: 1000,
     settings: {}
   }
