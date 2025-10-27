@@ -559,7 +559,7 @@ def neo4j_listen_for_events(topic, stop_event):
                 result = session.run(query_event, dst_uid=dst_uid, props=properties)
                 record = result.evaluate()  # Get the first returned record
                 if record:
-                    event_uid = record["event_uid"]
+                    event_uid = record
                     print(f"[neo4j_api.py] Created EVENT node with UID: {event_uid}")
                 else:
                     event_uid = None
