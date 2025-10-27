@@ -13,7 +13,7 @@ COPY ./requirements.txt ./requirements.txt
 RUN pip3 install -r requirements.txt
 
 # Copy all files to the working directory in the container
-COPY ./* ./
+COPY . ./
 
 # Convert line endings for run.sh and all .py files to Unix format
 RUN sed -i 's/\r$//' run_lumen.sh && \
