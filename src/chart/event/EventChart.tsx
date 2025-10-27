@@ -2,6 +2,14 @@ import React, { useState } from 'react';
 import axios from 'axios'; // HTTP client
 import { ChartProps } from '../Chart';
 
+  const NEO4J_ENDPOINT_5001 = 'https://madt4bc.dynabic.dev/neo4j-api';
+  const MINIO_ENPOINT_5000 = 'https://madt4bc.dynabic.dev/minio-api';
+  const INFLUXDB_ENDPOINT_4999 = 'https://madt4bc.dynabic.dev/influxdb-api';
+
+  // const NEO4J_ENDPOINT_5001 = "http://localhost:5001";
+  // const MINIO_ENPOINT_5000 = "http://localhost:5000";
+  // const INFLUXDB_ENDPOINT_4999 = "http://localhost:4999";
+
 /**
  * Renders a generated event report with conditional color coding.
  */
@@ -53,7 +61,7 @@ const EventChart = (props: ChartProps) => {
     setError(null);
     try {
       // Adjust the endpoint URL to point to the correct host and port.
-      const response = await axios.get<EventReport>('http://localhost:5001/neo4j_events');
+      const response = await axios.get<EventReport>(NEO4J_ENDPOINT_5001+'/neo4j_events');
       setReportData(response.data);
       // console.log(response.data)
     } catch (err) {

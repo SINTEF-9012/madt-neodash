@@ -552,43 +552,29 @@ def neo4j_listen_for_events(topic, stop_event):
                 CREATE (event:EVENT $props)
                 SET event.uid = randomUUID()
                 CREATE (event)-[:Affects]->(asset)
-                RETURN event, asset
-                """
-            # Use the src_uid and dst_uid from the parsed properties; if absent, the query might fail.
-            dst_uid = properties.get("dst_asset_uuid")
-            src_uid = properties.get("src_asset_uuid")
-            src_ip = properties.get("src_ip")
-
-            # If attacker has no uuid: 
-            if src_uid == "":
-                # New ATTACKER with ip of src_ip and generated uuid. Links to target asset
-                query_attack = """
-                MERGE (asset:ASSET {uid: $dst_uid})
-                CREATE (attk:ATTACKER $attk_props)
-                SET attk.ip = $src_ip
-                SET attk.uid = randomUUID()
-                CREATE (attk)-[:Attacks]->(asset)
-                RETURN attk, asset
+                RETURN event.uid AS event_uid
                 """
                 session = get_py2neo_graph()
                 print(f"[neo4j_api.py] Creating EVENT node, and linking to ASSET node with UID: {dst_uid}")
                 result = session.run(query_event, dst_uid=dst_uid, props=properties)
-                record = result.evaluate()  # Get the first returned record
+                record = result.single()  # Get the first returned record
                 if record:
                     event_uid = record["event_uid"]
                     print(f"[neo4j_api.py] Created EVENT node with UID: {event_uid}")
                 else:
                     event_uid = None
                     print("[neo4j_api.py] No EVENT node created or returned.")
-                # Check if attacker (identified by src_uid) is already present in KG: 
+            # Use the src_uid and dst_uid from the parsed properties; if absent, the query might fail.
                 query_check_attacker = """
-                    MATCH (n)
-                    WHERE (n:ASSET OR n:ATTACKER) AND n.uid = $src_uid
-                    RETURN COUNT(n) > 0 AS attacker_exists
-                """
+                        MATCH (n)
+                        WHERE (n:ASSET OR n:ATTACKER) AND n.uid = $src_uid
+                        RETURN COUNT(n) > 0 AS attacker_exists
+                    """
                 session = get_py2neo_graph()
+            
                 result = session.run(query_check_attacker, {"src_uid": src_uid})
                 attacker_exists = result.evaluate()
+
                 if attacker_exists:
                     query_attack = """
                         MERGE (asset:ASSET {uid: $dst_uid})
@@ -613,11 +599,12 @@ def neo4j_listen_for_events(topic, stop_event):
                         RETURN attk, asset
                     """
                 # Run the query with parameters using the Neo4j driver:
-                session = driver.session()
+                session = get_py2neo_graph()
                 print(f"[neo4j_api.py] Creating ATTACKER node and linking to ASSET node with UID: {dst_uid}")
                 session.run(query_attack, dst_uid=dst_uid, src_ip=src_ip, src_uid=src_uid, attk_props=attk_properties, event_uid=event_uid)
             else:
                 print(f"[neo4j_api.py] EVENT recorded but skipped due to no ASSET being found with uid: {dst_uid}")
+
     except KeyboardInterrupt:
         print("[neo4j_api.py] Consumer stopped from keyboard.")
     except Exception as e:
