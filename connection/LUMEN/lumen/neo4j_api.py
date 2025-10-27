@@ -317,7 +317,7 @@ def neo4j_graph():
             })
         return new_graph_data
     except Exception as e:
-        print("im here")
+        # print("im here")
         print(f"An error occurred: {e}")
         return []
     finally:
@@ -363,7 +363,7 @@ def neo4j_full_graph():
                     "elementId": str(node2.identity)
                 },
             })
-        print(new_graph_data)
+        # print(new_graph_data)
         return new_graph_data
     except Exception as e:
         print(f"An error occurred: {e}")
