@@ -216,19 +216,23 @@ def analytics_generate_and_run_code():
                 - format: str          # Data format
                 - bucket: str          # Bucket ID
     """
-    graph_operator = AssistantAgent(
-        name = "graph_operator",
-        model_client = current_model_client,
-        tools = [retrieve_content, create_content, content_overview],
-        description = "An agent that creates and retrieves content from a Neo4J database.",
-        system_message = f""" You answer user requests by creating or retrieving Neo4J content using registered tools:
+    old_system_message = f""" You answer user requests by creating or retrieving Neo4J content using registered tools:
                         -  retrieve_content: given an asset name, provides information on that asset;
                         -  content_overview: provides full overview of graph content (only use if user asks for more than one asset);
                         -  create_content: executes any Cypher query of choice (only CREATE statements allowed);
                         Creation rules you MUST follow:
                         1) Follow the schema: {DB_SCHEMA};
                         2) One Cypher statement only;
-                        3) Use empty strings when properties are not given by the user; """,  
+                        3) Use empty strings when properties are not given by the user; """
+    
+    graph_operator = AssistantAgent(
+        name = "graph_operator",
+        model_client = current_model_client,
+        tools = [retrieve_content, content_overview], # OLD: tools = [retrieve_content, create_content, content_overview],
+        description = "An agent that retrieves content from a Neo4J database.",  # OLD: description = "An agent that creates and retrieves content from a Neo4J database."
+        system_message = f""" You retrieve Neo4J content using your registered tools. Call tool A if the user request contains an asset name. Call tool B if user asks for an overview or for more than one asset.
+                        - A:  retrieve_content: given an asset name, provides information on that asset, including all asset properties;
+                        - B:  content_overview: provides full overview of graph content, including all properties; """,  
         max_tool_iterations = 1,
         reflect_on_tool_use = False
     )
