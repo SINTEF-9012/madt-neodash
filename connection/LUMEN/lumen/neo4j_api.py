@@ -557,7 +557,7 @@ def neo4j_listen_for_events(topic, stop_event):
                 session = get_py2neo_graph()
                 print(f"[neo4j_api.py] Creating EVENT node, and linking to ASSET node with UID: {dst_uid}")
                 result = session.run(query_event, dst_uid=dst_uid, props=properties)
-                record = result.single()  # Get the first returned record
+                record = result.evaluate()  # Get the first returned record
                 if record:
                     event_uid = record["event_uid"]
                     print(f"[neo4j_api.py] Created EVENT node with UID: {event_uid}")
