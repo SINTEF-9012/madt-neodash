@@ -75,8 +75,9 @@ def start_listeners(uc: int):
     }
     # Only UC=2 has status topic
     if uc == 2:
-        uc_status_topic = config_kafka.get('kafka', f"uc{uc}_status")
-        listener_threads["status"] = Thread(target=neo4j_listen_for_status, args=(uc_status_topic, stop_events["status"]))
+        if "notrelitoral" in uc_topic:
+            uc_status_topic = config_kafka.get('kafka', f"uc{uc}_status")
+            listener_threads["status"] = Thread(target=neo4j_listen_for_status, args=(uc_status_topic, stop_events["status"]))
     for name, thread in listener_threads.items():
         thread.start()
         print(f"[neo4j_api.py] Listener thread '{name}' started for UC{uc}")
@@ -593,7 +594,7 @@ def neo4j_listen_for_events(topic, stop_event):
                         MERGE (event:EVENT {uid: $event_uid})
                         CREATE (attk:ATTACKER $attk_props)
                         SET attk.ip = $src_ip
-                        SET attk.uid = apoc.create.uuid()
+                        SET attk.uid = randomUUID()
                         CREATE (attk)-[:Attacks]->(asset)
                         CREATE (attk)-[:Produces]->(event)
                         RETURN attk, asset

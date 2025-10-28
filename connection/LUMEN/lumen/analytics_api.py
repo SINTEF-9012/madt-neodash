@@ -11,7 +11,10 @@ from autogen_agentchat.teams import SelectorGroupChat
 from autogen_core.model_context import BufferedChatCompletionContext, ChatCompletionContext
 from autogen_agentchat.ui import Console
 from autogen_agentchat.messages import BaseAgentEvent, BaseChatMessage, ModelClientStreamingChunkEvent
-from autogen_core.tools import BaseTool, FunctionTool, ToolResult
+from autogen_core.tools import BaseTool, FunctionTool, Workbench
+from autogen_ext.tools.code_execution import PythonCodeExecutionTool
+from autogen_core.models import CreateResult, SystemMessage, ChatCompletionClient
+from autogen_core import CancellationToken
 from autogen_agentchat.base import Response
 from pathlib import Path
 import tempfile
@@ -32,6 +35,74 @@ from datetime import datetime
 
 import asyncio
 import nest_asyncio
+
+
+class ForcedAssistantAgent(AssistantAgent):
+    """AssistantAgent that always enforces tool calling."""
+
+    @classmethod
+    async def _call_llm(
+        cls,
+        model_client: ChatCompletionClient,
+        model_client_stream: bool,
+        system_messages: List[SystemMessage],
+        model_context: ChatCompletionContext,
+        workbench: Sequence[Workbench],
+        handoff_tools: List[BaseTool[Any, Any]],
+        agent_name: str,
+        cancellation_token: CancellationToken,
+        output_content_type: type[BaseModel] | None,
+        message_id: str,
+    ) -> AsyncGenerator[Union[CreateResult, ModelClientStreamingChunkEvent], None]:
+        """Call the language model with given context and configuration.
+
+        Args:
+            model_client: Client for model inference
+            model_client_stream: Whether to stream responses
+            system_messages: System messages to include
+            model_context: Context containing message history
+            workbench: Available workbenches
+            handoff_tools: Tools for handling handoffs
+            agent_name: Name of the agent
+            cancellation_token: Token for cancelling operation
+            output_content_type: Optional type for structured output
+
+        Returns:
+            Generator yielding model results or streaming chunks
+        """
+        all_messages = await model_context.get_messages()
+        llm_messages = cls._get_compatible_context(model_client=model_client, messages=system_messages + all_messages)
+
+        tools = [tool for wb in workbench for tool in await wb.list_tools()] + handoff_tools
+
+        if model_client_stream:
+            model_result: Optional[CreateResult] = None
+
+            async for chunk in model_client.create_stream(
+                llm_messages,
+                tools=tools,
+                tool_choice="required",   # Needs to be added to enforce tool call!
+                json_output=output_content_type,
+                cancellation_token=cancellation_token,
+            ):
+                if isinstance(chunk, CreateResult):
+                    model_result = chunk
+                elif isinstance(chunk, str):
+                    yield ModelClientStreamingChunkEvent(content=chunk, source=agent_name, full_message_id=message_id)
+                else:
+                    raise RuntimeError(f"Invalid chunk type: {type(chunk)}")
+            if model_result is None:
+                raise RuntimeError("No final model result in streaming mode.")
+            yield model_result
+        else:
+            model_result = await model_client.create(
+                llm_messages,
+                tools=tools,
+                tool_choice="required", # Needs to be added to enforce tool call!
+                cancellation_token=cancellation_token,
+                json_output=output_content_type,
+            )
+            yield model_result
 
 # Create a single global event loop for all requests
 global_loop = asyncio.new_event_loop()
@@ -230,11 +301,12 @@ def analytics_generate_and_run_code():
         model_client = current_model_client,
         tools = [retrieve_content, content_overview], # OLD: tools = [retrieve_content, create_content, content_overview],
         description = "An agent that retrieves content from a Neo4J database.",  # OLD: description = "An agent that creates and retrieves content from a Neo4J database."
-        system_message = f""" You retrieve Neo4J content using your registered tools. Call tool A if the user request contains an asset name. Call tool B if user asks for an overview or for more than one asset.
-                        - A:  retrieve_content: given an asset name, provides information on that asset, including all asset properties;
-                        - B:  content_overview: provides full overview of graph content, including all properties; """,  
+        system_message = f""" You retrieve Neo4J content using your registered tools. Call tool A if the user request contains an asset name. Call tool B if user asks for an overview.
+                        - Tool A [retrieve_content]: Given an asset name, provides information on that asset, including all asset properties;
+                        - Tool B [content_overview]: Provides full overview of graph content, including all properties; """,  
         max_tool_iterations = 1,
-        reflect_on_tool_use = False
+        reflect_on_tool_use = False,
+        model_context=BufferedChatCompletionContext(buffer_size=1),
     )
 
     # File Path Driver:
@@ -255,8 +327,10 @@ def analytics_generate_and_run_code():
                 # Retrieved data content:
                 # output = json_response['output']
                 file_path = json_response['filename']
-                print(f"[InfluxDB] filepath_driver saved time-series CSV data to path: {file_path}")
-                return file_path
+                mime = magic.Magic(mime=True) 
+                file_type = mime.from_file("./downloads/" + file_path)
+                print(f"[InfluxDB] filepath_driver saved time-series CSV data to path: {file_path}, MIME type: {file_type}")
+                return "File path: "+ file_path + " | File type: "+ file_type +".  [Note] This CSV file has the following columns: timestamp, measurement, field and value."
             # Handle failed response codes
             print(f"[InfluxDB] filepath_driver HTTP error <(BUCKET_ERROR)> {response.status_code}: {response.text}")
             return f"[InfluxDB] filepath_driver HTTP error <(BUCKET_ERROR)> {response.status_code}: {response.text}"
@@ -277,10 +351,12 @@ def analytics_generate_and_run_code():
             )
             if response.ok:
                 json_response = response.json()
-                print(json_response)
+                # print(json_response)
                 file_path = json_response["file_path"]
-                print(f"[MinIO] filepath_driver saved static data to path: {file_path}")
-                return file_path
+                mime = magic.Magic(mime=True) 
+                file_type = mime.from_file("./downloads/" + file_path)
+                print(f"[MinIO] filepath_driver saved static data to path: {file_path}, MIME type: {file_type}")
+                return "File path: "+file_path+" | File type: "+file_type
             print(f"[MinIO] filepath_driver HTTP error <(BUCKET_ERROR)> {response.status_code}: {response.text}")
             return f"[MinIO] filepath_driver HTTP error <(BUCKET_ERROR)> {response.status_code}: {response.text}"
         except Exception as e:
@@ -296,33 +372,61 @@ def analytics_generate_and_run_code():
         model_client = current_model_client,
         tools = [timeseries_filepath_tool, static_filepath_tool],
         description = "An agent that fetches data, saves it locally and returns the file path. ",
-        system_message = """Given a user request, find the bucket associated with the asset of interest and call your tools (timeseries_filepath_tool, static_filepath_tool) to save the data requested and return the file path.
-                            You can obtain MinIO (static data) and InfluxDB (time-series data) file paths through two registered functions by filling the function argument(s).
-                            For time-series data only: use ISO 8601 datetime-local YYYY-MM-DDTHH:mm format for eventual start_time and end_time. """,
+        system_message = """Given a user request, you retrieve the file path linked to the bucket using your registered tools. Call timeseries_filepath_tool if the bucket ID is in datasource_buckets. Call static_filepath_tool if the bucket ID is in static_buckets.
+                        - [timeseries_filepath_tool]: Obtains file path to time-series data. Use ISO 8601 datetime-local YYYY-MM-DDTHH:mm format to fill start_time and end_time, and the bucket ID;
+                        - [static_filepath_tool]: Obtains file path to static data. Fill the function argument with the bucket ID;
+                        """,
         max_tool_iterations = 1,
         reflect_on_tool_use = False 
     )
 
-    # Code Generator + Executor
     llm_work_dir = "./downloads"
-    executor =  LocalCommandLineCodeExecutor(timeout = 360, work_dir = llm_work_dir)
-    code_generator = CodeExecutorAgent(
+    executor =  LocalCommandLineCodeExecutor(timeout = 600, work_dir = llm_work_dir)
+    # Code Generator  - Variant 1
+    #code_generator = CodeExecutorAgent(
+    #    name = "code_generator",
+    #    code_executor = executor,
+    #    model_client = current_model_client,
+    #    description = "An agent that generates Python code to read and print the file content and executes it. ",
+    #    system_message = """Given a file path, generate Python code to print the content of the file. Call main() at the end, then execute the code. Do not explain the code, only output the code. 
+    #                        Generate code without structural assumptions (keep to simple operations that cannot fail). Pre-installed packages: numpy, scapy, pandas, matplotlib, dpkt (for PCAP files).""",
+    #    model_context=BufferedChatCompletionContext(buffer_size=1),
+    #    max_retries_on_error = 0
+    #)
+
+    # Code Generator - Variant 2 : Forced execution
+    executor =  LocalCommandLineCodeExecutor(timeout = 600, work_dir = llm_work_dir)
+    execute_code = PythonCodeExecutionTool(executor) # Tool that executes Python code 
+    # Agent that generates and executes tests (monitored version)
+    code_generator = ForcedAssistantAgent(
         name = "code_generator",
-        code_executor = executor,
         model_client = current_model_client,
-        description = "An agent that generates Python code to read and print the file content. ",
-        system_message = """Given a file path, generate Python code to print the content of the file on that path. Call main() at the end, then execute the code. Do not explain the code, only output the code.
-                            Note: For time-series data, the file is a CSV with columns: timestamp, measurement, field and value. Never filter CSVs. Generate code without structural assumptions.
-                            Pre-installed packages: numpy, scapy, pandas, matplotlib, dpkt (for PCAP files).""",
-        model_context=BufferedChatCompletionContext(buffer_size=2),
+        tools = [execute_code],
+        description = "An agent that generates Python code to print the file content and executes it via registered tool. ",
+        system_message = "Given a file path, generate Python code to print the content of the file. Write main() at the end, then execute the code via execute_code. Do not explain the code, only output the code.  Generate code without structural assumptions (keep to simple operations that cannot fail). Pre-installed packages: numpy, scapy, pandas, matplotlib, dpkt (for PCAP files). ",
+        max_tool_iterations = 1,
+        model_context=BufferedChatCompletionContext(buffer_size=1)
     )
+
+    # Data analyzer
+    # Agent that generates and executes tests (monitored version)
+    #data_analyzer = ForcedAssistantAgent(
+    #    name = "data_analyzer",
+    #    model_client = current_model_client,
+    #    tools = [execute_code],
+    #    description = "An agent that generates Python code to analyze a file by executing the code via registered tool. ",
+    #    system_message = "Given a file path, the overview of the data, and the user request, generate Python code to analyze the file to answer the user request. Write main() at the end, then execute the code via execute_code. Do not explain the code. Pre-installed packages: numpy, scapy, pandas, matplotlib, dpkt (for PCAP files). ",
+    #    max_tool_iterations = 1,
+    #    model_context=BufferedChatCompletionContext(buffer_size=3)
+    #)
 
     # Output Repeater
     output_repeater = AssistantAgent(
         name = "output_repeater",
         model_client= current_model_client,
-        description = "An agent that presents the execution results to the user.",
-        system_message="Present the execution result and write TERMINATE at the end to finish the conversation."
+        description = "An agent that presents the execution results it receives in a user-friendly way, then terminates the chat.",
+        system_message="Read the output of the message and present it in a user-friendly manner. Write TERMINATE at the end of your message when your're done.",
+        model_context=BufferedChatCompletionContext(buffer_size=1),
     )
 
     # Team
@@ -350,7 +454,7 @@ def analytics_generate_and_run_code():
         if messages[-1].source == "code_generator":
             return "output_repeater"
         if messages[-1].source == "output_repeater":
-            return None
+            return "output_repeater"
         return None
     
     # Create the group chat
@@ -373,10 +477,15 @@ def analytics_generate_and_run_code():
         async for event in selector_team.run_stream(task=full_task):
             # We only care about chat messages, not internal events
             if hasattr(event, "source") and getattr(event, "source", "") == "output_repeater":
+                print("[LOG] Message Source: " + getattr(event, "source", ""))
                 print(event.to_text())
                 result_text += event.to_text()
             else:
                 if isinstance(event, BaseChatMessage) or isinstance(event, BaseAgentEvent):
+                    if hasattr(event, "source"):
+                        print("[LOG] Message Source: " + getattr(event, "source", ""))
+                    else:
+                        print("[LOG] Message Type: EVENT")
                     print(event.to_text())
         await executor.stop()
         await selector_team.reset()

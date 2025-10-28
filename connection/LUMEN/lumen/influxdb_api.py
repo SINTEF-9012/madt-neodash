@@ -446,7 +446,7 @@ def ping():
     return str(ready)
 
 if __name__ == '__main__':
-    time.sleep(60)  # Give time for mapping creation
+    time.sleep(30)  # Give time for mapping creation
     topic_uid_dict, last_mapping_content = load_mapping_file()
     if topic_uid_dict:
         start_influx_listeners(topic_uid_dict)

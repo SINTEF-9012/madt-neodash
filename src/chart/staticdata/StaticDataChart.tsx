@@ -80,6 +80,7 @@ const StaticDataChart = (props: ChartProps) => {
           const postUrl = `${NEO4J_ENDPOINT_5001}/neo4j_update_metadata`;
           const updateResponse = await axios.post(postUrl, postData);
           console.log('[StaticDataChart.tsx] Update status in Neo4j:', updateResponse.data.status);
+          alert("Succesfully uploaded data to MinIO.");
         } else {
           console.error('[StaticDataChart.tsx] Error fetching URL.');
         }
