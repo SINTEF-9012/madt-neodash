@@ -31,7 +31,7 @@ import csv
 import time
 from pydantic import BaseModel, Field
 from typing import Annotated, Literal, List, Optional, Union, Sequence, Any, Callable, Dict, Mapping, AsyncGenerator
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import asyncio
 import nest_asyncio
@@ -218,8 +218,8 @@ def analytics_generate_and_run_code():
                 OPTIONAL MATCH (a)<-[*]-(sd:STATICDATA)
                 OPTIONAL MATCH (a)<-[*]-(ds:DATASOURCE)
                 RETURN a AS asset,
-                    collect(DISTINCT {{bucket: sd.bucket, type: sd.type, name: sd.name}}) AS static_buckets,
-                    collect(DISTINCT {{bucket: ds.bucket, type: ds.type, name: ds.name}}) AS datasource_buckets
+                    collect(DISTINCT {{bucket: sd.bucket, type: sd.type, name: sd.name, format: sd.format}}) AS static_buckets,
+                    collect(DISTINCT {{bucket: ds.bucket, type: ds.type, name: ds.name, format: ds.format}}) AS datasource_buckets
                 """
                 # Call the Neo4j API via create_content()
                 raw_result = await create_content(query)
@@ -363,19 +363,67 @@ def analytics_generate_and_run_code():
             print(f"[MinIO] Error in filepath_driver <(BUCKET_ERROR)>: {e}")
             return f"[MinIO] Error in filepath_driver <(BUCKET_ERROR)>: {e}"
 
-    static_filepath_tool = FunctionTool(
-    getFilepathStatic, description="Returns the file path of object saved from MinIO (static) given a bucket."
-    )
+    static_filepath_tool = FunctionTool(getFilepathStatic, description="Returns the file path of object saved from MinIO (static) given a bucket.")
 
-    filepath_driver = AssistantAgent(
+    async def getFilepath(format: str, bucket: str, start_time: str, end_time: str) -> str:
+        """
+        Dispatch file path retrieval based on format.
+        - For 'timeseries': calls getFilepathTimeseries(bucket, start_time, end_time) , for time - use ISO 8601 datetime-local YYYY-MM-DDTHH:mm:ss 
+        - For 'static': calls getFilepathStatic(bucket)
+        """
+        try:
+            format = format.lower().strip()
+            print(f"[analytics_api.py] Requested file path for format='{format}', bucket='{bucket}'")
+
+            if format == "timeseries" or format =="cicflowmeter" or format == "metricbeat" or format == "ocppflowmeter":
+                if not start_time or not end_time:
+                    return "[analytics_api.py] <(BUCKET_ERROR)> Missing required parameters: start_time and end_time for timeseries data."
+                if start_time == end_time:
+                    # If start and end dates are the same, there's no range, so we create a range (24HR): 
+                    try:
+                        start_dt = datetime.fromisoformat(start_time.replace("Z", ""))
+                        end_dt = datetime.fromisoformat(end_time.replace("Z", ""))
+                        start_dt = end_dt - timedelta(days=1)
+                        # Convert back to string (ISO 8601)
+                        start_time = start_dt.isoformat()
+                        end_time = end_dt.isoformat()
+                    except ValueError:
+                        return "[analytics_api.py] <(BUCKET_ERROR)> Invalid datetime format. Expected 'YYYY-MM-DDTHH:MM:SS'."
+                return await getFilepathTimeseries(bucket, start_time, end_time)
+
+            elif format == "static":
+                return await getFilepathStatic(bucket)
+
+            else:
+                return f"[analytics_api.py] <(BUCKET_ERROR)> Unsupported data format '{format}'. Use 'timeseries' or 'static'."
+
+        except Exception as e:
+            print(f"[analytics_api.py] <(BUCKET_ERROR)> Unexpected error: {e}")
+            return f"[analytics_api.py] <(BUCKET_ERROR)> Unexpected error: {e}"
+
+    get_filepath_tool = FunctionTool(getFilepath, description="Returns the file path of data given a bucket and data format.")
+
+    # Filepath Driver - Variant 1
+    #filepath_driver = AssistantAgent(
+    #    name = "filepath_driver",
+    #    model_client = current_model_client,
+    #    tools = [timeseries_filepath_tool, static_filepath_tool],
+    #    description = "An agent that fetches data, saves it locally and returns the file path. ",
+    #    system_message = """Given a user request, you retrieve the file path linked to the bucket using your registered tools. Call timeseries_filepath_tool if the bucket ID is in datasource_buckets. Call static_filepath_tool if the bucket ID is in static_buckets.
+    #                    - [timeseries_filepath_tool]: Obtains file path to time-series data. Use ISO 8601 datetime-local YYYY-MM-DDTHH:mm format to fill start_time and end_time, and the bucket ID;
+    #                    - [static_filepath_tool]: Obtains file path to static data. Fill the function argument with the bucket ID;
+    #                    """,
+    #    max_tool_iterations = 1,
+    #    reflect_on_tool_use = False 
+    #)
+
+    # Filepath Driver - Variant 2 : Forced execution
+    filepath_driver = ForcedAssistantAgent(
         name = "filepath_driver",
         model_client = current_model_client,
-        tools = [timeseries_filepath_tool, static_filepath_tool],
+        tools = [get_filepath_tool],
         description = "An agent that fetches data, saves it locally and returns the file path. ",
-        system_message = """Given a user request, you retrieve the file path linked to the bucket using your registered tools. Call timeseries_filepath_tool if the bucket ID is in datasource_buckets. Call static_filepath_tool if the bucket ID is in static_buckets.
-                        - [timeseries_filepath_tool]: Obtains file path to time-series data. Use ISO 8601 datetime-local YYYY-MM-DDTHH:mm format to fill start_time and end_time, and the bucket ID;
-                        - [static_filepath_tool]: Obtains file path to static data. Fill the function argument with the bucket ID;
-                        """,
+        system_message = """Given a user request, you retrieve the file path linked to the relevant bucket using your get_filepath_tool tool. If format = timeseries, use ISO 8601 YYYY-MM-DDTHH:mm:ss format to fill start_time and end_time.""",
         max_tool_iterations = 1,
         reflect_on_tool_use = False 
     )
@@ -403,7 +451,7 @@ def analytics_generate_and_run_code():
         model_client = current_model_client,
         tools = [execute_code],
         description = "An agent that generates Python code to print the file content and executes it via registered tool. ",
-        system_message = "Given a file path, generate Python code to print the content of the file. Write main() at the end, then execute the code via execute_code. Do not explain the code, only output the code.  Generate code without structural assumptions (keep to simple operations that cannot fail). Pre-installed packages: numpy, scapy, pandas, matplotlib, dpkt (for PCAP files). ",
+        system_message = "Given a file path, generate Python code to print the content of the file. Write main() at the end, then execute the code via execute_code. Do not explain the code, only output the code.  Generate code without structural assumptions (keep to simple operations that cannot fail). Pre-installed packages: numpy, scapy, pandas, matplotlib, dpkt (for PCAP files). Print without truncation limits! ",
         max_tool_iterations = 1,
         model_context=BufferedChatCompletionContext(buffer_size=1)
     )
@@ -425,7 +473,7 @@ def analytics_generate_and_run_code():
         name = "output_repeater",
         model_client= current_model_client,
         description = "An agent that presents the execution results it receives in a user-friendly way, then terminates the chat.",
-        system_message="Read the output of the message and present it in a user-friendly manner. Write TERMINATE at the end of your message when your're done.",
+        system_message="Read the output of the message and present it in a user-friendly manner. Avoid writing (...), just write about the data you see. Write TERMINATE at the end of your message when your're done.",
         model_context=BufferedChatCompletionContext(buffer_size=1),
     )
 

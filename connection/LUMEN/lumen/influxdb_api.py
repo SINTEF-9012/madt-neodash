@@ -112,6 +112,7 @@ def get_unique_filepath(directory, filename):
 
 def normalize_time(t: str) -> str:
     # Ensure 'Z' at the end for UTC; add seconds if missing
+    t = t.strip().replace(" ", "T")
     if not t.endswith("Z"):
         if len(t.split(":")) == 2:  # only hours and minutes
             t += ":00Z"
