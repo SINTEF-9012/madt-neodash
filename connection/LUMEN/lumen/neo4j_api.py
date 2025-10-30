@@ -604,8 +604,22 @@ def neo4j_listen_for_events(topic, stop_event):
                 print(f"[neo4j_api.py] Creating ATTACKER node and linking to ASSET node with UID: {dst_uid}")
                 session.run(query_attack, dst_uid=dst_uid, src_ip=src_ip, src_uid=src_uid, attk_props=attk_properties, event_uid=event_uid)
             else:
-                print(f"[neo4j_api.py] EVENT recorded but skipped due to no ASSET being found with uid: {dst_uid}")
-
+                # No destination UID e.g Power outage & Fiber cuts - only create EVENT:
+                print(f"[neo4j_api.py] Creating EVENT node but no link to ASSET are added due to unseen destination uid: {dst_uid}")
+                query_event = """
+                    CREATE (event:EVENT $props)
+                    SET event.uid = randomUUID()
+                    RETURN event.uid AS event_uid
+                """
+                session = get_py2neo_graph()
+                result = session.run(query_event, props=properties)
+                record = result.evaluate()  # Get the first returned record
+                if record:
+                    event_uid = record
+                    print(f"[neo4j_api.py] Created EVENT node with UID: {event_uid}")
+                else:
+                    event_uid = None
+                    print("[neo4j_api.py] No EVENT node created or returned.")
     except KeyboardInterrupt:
         print("[neo4j_api.py] Consumer stopped from keyboard.")
     except Exception as e:
@@ -736,7 +750,7 @@ def neo4j_graph_update(current_graph, topic, asset_only: bool):
                 sasl_plain_password=config_kafka.get('kafka', 'sasl_plain_password'),
             )
             full_graph_data = current_graph
-            producer.send(topic, json.dumps(graph_data).encode('utf-8'))
+            producer.send(topic, json.dumps(full_graph_data).encode('utf-8'))
             producer.flush()
             producer.close()
             # Produce new topic mapping:
@@ -1037,8 +1051,12 @@ def neo4j_add_relation():
 def get_events_report():
     print("[neo4j_api.py] Request to run query in Neo4J and fetch event information for reporting purposes.")
     query = """
-    MATCH (e:EVENT)-[:Affects]->(a:ASSET)
-    RETURN a.name AS asset, a.criticality AS criticality, count(e) AS event_count
+    MATCH (e:EVENT)
+    OPTIONAL MATCH (e)-[:Affects]->(a:ASSET)
+    RETURN 
+        COALESCE(a.name, "Unlinked") AS asset,
+        COALESCE(a.criticality, "N/A") AS criticality,
+        count(e) AS event_count
     """
     # Data containers
     asset_events = []
