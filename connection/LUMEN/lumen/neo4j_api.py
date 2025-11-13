@@ -461,22 +461,26 @@ def neo4j_listen_for_reactions(topic, stop_event):
             properties  = parse_reaction_properties(message_content)
             # Create REACTION node with properties:
             query_reaction = """
-            MERGE (asset:ASSET {uid: $target_uid})
-            MERGE (attk:ATTACKER {uid: $attacker_uid})
+            MATCH (asset:ASSET)
+            WHERE asset.uid = $target_uid OR asset.ip = $target_ip
+            OPTIONAL MATCH (attk:ATTACKER {uid: $attacker_uid})
             CREATE (react:REACTION $props)
             SET react.uid = randomUUID()
             CREATE (react)-[:Involves]->(asset)
-            CREATE (react)-[:Mitigates]->(attk)
+            FOREACH (_ IN CASE WHEN attk IS NOT NULL THEN [1] ELSE [] END |
+                CREATE (react)-[:Mitigates]->(attk)
+            )
             RETURN react, asset, attk
             """
             target_uid = properties.get("target_uuid")
             attacker_uid = properties.get("attacker_uuid")
+            target_ip = properties.get("target_ip")
             # Run the query with parameters using the Neo4j driver:
 
             # with driver.session() as session:
             session = get_py2neo_graph()
-            print(f"[neo4j_api.py] Creating REACTION node, linking to ASSET node with UID: {target_uid} and ATTACKER node with UID: {attacker_uid} ")
-            session.run(query_reaction, target_uid=target_uid, attacker_uid=attacker_uid, props=properties)
+            print(f"[neo4j_api.py] Creating REACTION node, linking to ASSET node with UID/ip: {target_uid}/{target_ip} and ATTACKER node with UID: {attacker_uid} ")
+            session.run(query_reaction, target_uid=target_uid, attacker_uid=attacker_uid, target_ip=target_ip, props=properties)
     except KeyboardInterrupt:
         print("[neo4j_api.py] Consumer stopped from keyboard.")
     except Exception as e:
