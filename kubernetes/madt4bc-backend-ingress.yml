@@ -1,0 +1,73 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: madt4bc-backend-ingress
+  namespace: dynabic
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: 500m
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "1200"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "1200"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "1200"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - madt4bc.dynabic.dev
+      secretName: madt4bc-cert
+  rules:
+    - host: madt4bc.dynabic.dev
+      http:
+        paths:
+          - path: /minio-api(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: madt4bc-backend
+                port:
+                  number: 5000
+          - path: /influx-api(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: madt4bc-backend
+                port:
+                  number: 4999
+          - path: /neo4j-api(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: madt4bc-backend
+                port:
+                  number: 5001
+          - path: /analytics-api(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: madt4bc-backend
+                port:
+                  number: 5002
+          - path: /download-api(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: madt4bc-backend
+                port:
+                  number: 5004
+          - path: /statistics-api(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: madt4bc-backend
+                port:
+                  number: 5003
+          - path: /minio-db(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: madt4bc-minio
+                port:
+                  number: 9000
+ 
+    
