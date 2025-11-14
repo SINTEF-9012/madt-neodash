@@ -237,7 +237,7 @@ def analytics_generate_and_run_code():
         """ Returns a full overview of the knowledge graph: all nodes (with properties) and all relationships.  """
         try:
             query = """
-            MATCH (n)
+            MATCH (n: ASSET) 
             WITH n LIMIT 100
             OPTIONAL MATCH (n)-[r]->(m)
             RETURN
@@ -258,6 +258,31 @@ def analytics_generate_and_run_code():
                     labels: labels(m),
                     properties: properties(m)
                 }) AS m_nodes
+            """
+            # Call the Neo4j API via create_content()
+            raw_result = await create_content(query)
+            # Remove the custom creation marker
+            cleaned = raw_result.replace("<(CREATION_KEY)>", "<(OVERVIEW_KEY)>").strip()
+            if "Error in graph_operator" in cleaned:
+                # Fallback if no data is found
+                return "No data is found in the Neo4J graph."
+            else:
+                return repr(cleaned)
+        except Exception as e:
+            return repr({"Error in graph_operator": str(e)})
+        
+
+    async def event_report() -> str:
+        """ Returns a report of the events in the knowledge graph.  """
+        try:
+            query = """
+                MATCH (e:EVENT)
+                WITH e LIMIT 50          
+                OPTIONAL MATCH (e)-[:Affects]->(a:ASSET)
+                RETURN
+                    count(DISTINCT e) AS event_count,
+                    collect(DISTINCT e.attack_type) AS attack_types,
+                    collect(DISTINCT a.name) AS affected_assets
             """
             # Call the Neo4j API via create_content()
             raw_result = await create_content(query)
@@ -291,6 +316,7 @@ def analytics_generate_and_run_code():
                         -  retrieve_content: given an asset name, provides information on that asset;
                         -  content_overview: provides full overview of graph content (only use if user asks for more than one asset);
                         -  create_content: executes any Cypher query of choice (only CREATE statements allowed);
+                        -  event_report: provides an overview of the events in the graph (use if user asks about events);
                         Creation rules you MUST follow:
                         1) Follow the schema: {DB_SCHEMA};
                         2) One Cypher statement only;
@@ -299,11 +325,13 @@ def analytics_generate_and_run_code():
     graph_operator = AssistantAgent(
         name = "graph_operator",
         model_client = current_model_client,
-        tools = [retrieve_content, content_overview], # OLD: tools = [retrieve_content, create_content, content_overview],
+        tools = [retrieve_content, content_overview, event_report], # OLD: tools = [retrieve_content, create_content, content_overview],
         description = "An agent that retrieves content from a Neo4J database.",  # OLD: description = "An agent that creates and retrieves content from a Neo4J database."
-        system_message = f""" You retrieve Neo4J content using your registered tools. Call tool A if the user request contains an asset name. Call tool B if user asks for an overview.
+        system_message = f""" You retrieve Neo4J content using your registered tools. Call tool A if the user request contains an asset name. Call tool B if user asks for an overview. Call tool C if the user asks about the events.
                         - Tool A [retrieve_content]: Given an asset name, provides information on that asset, including all asset properties;
-                        - Tool B [content_overview]: Provides full overview of graph content, including all properties; """,  
+                        - Tool B [content_overview]: Provides full overview of graph content, including all properties;
+                        - Tool C [event_report]: Provides a report of the events in the graph (use if user asks about events);
+                          """,  
         max_tool_iterations = 1,
         reflect_on_tool_use = False,
         model_context=BufferedChatCompletionContext(buffer_size=1),

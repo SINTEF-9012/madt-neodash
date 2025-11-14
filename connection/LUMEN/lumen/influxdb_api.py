@@ -262,17 +262,30 @@ def dynamic_data_parser(data, point, parent_key=''):
                 # If list contains complex items, store the JSON string.
                 point.field(compound_key, json.dumps(value))
         else:
-            # Convert ints (where type is exactly int) to float.
+            # Try to convert numeric-looking strings to float
+            if isinstance(value, str):
+                try:
+                    # Attempt numeric conversion
+                    num_val = float(value)
+                    value = num_val
+                except ValueError:
+                    # Not numeric, keep as string
+                    pass
+            #  Convert plain ints to float
             if type(value) is int:
                 value = float(value)
-            # Decide whether to add the value as a tag or a field.
+            #  Decide tag vs field
             if isinstance(value, str) and len(value) < 50:
+                # Short strings -> tag
                 point.tag(compound_key, value)
             elif isinstance(value, (float, bool)):
+                # Floats & bools -> field
                 point.field(compound_key, value)
             elif isinstance(value, str):
+                # Long strings -> field
                 point.field(compound_key, value)
             else:
+                # Fallback: stringify
                 point.field(compound_key, str(value))
 
 def metricbeat_data_parser(data_dict, point):
@@ -400,7 +413,7 @@ def influxdb_upload_message(message, uid, topic):
     elif "cicflowmeter" in topic:
         # print("[influxdb_api.py] Writing cicflowmeter message ...")
         cic_data_parser(data_dict, point) # Use timestamp within flow
-    elif "logs" in topic:
+    elif "ocpplog" in topic:
         # print("[influxdb_api.py] Writing ocpplog message ...")
         ocpplog_data_parser(data_dict, point) # Use timestamp within flow
     else:
