@@ -237,27 +237,27 @@ def analytics_generate_and_run_code():
         """ Returns a full overview of the knowledge graph: all nodes (with properties) and all relationships.  """
         try:
             query = """
-            MATCH (n: ASSET) 
-            WITH n LIMIT 100
-            OPTIONAL MATCH (n)-[r]->(m)
+            MATCH (n:ASSET)
+            WITH
+            collect(DISTINCT n.name) AS asset_list,
+            count(DISTINCT n) AS total_number_of_assets
+
+            OPTIONAL MATCH (start:ASSET)-[r]->(end:ASSET)
+            WITH
+            asset_list,
+            total_number_of_assets,
+            start,
+            r,
+            end
+
             RETURN
-                collect(DISTINCT {
-                    id: id(n),
-                    labels: labels(n),
-                    properties: properties(n)
-                }) AS n_nodes,
-                collect(DISTINCT {
-                    id: id(r),
-                    type: type(r),
-                    start: id(startNode(r)),
-                    end: id(endNode(r)),
-                    properties: properties(r)
-                }) AS relationships,
-                collect(DISTINCT {
-                    id: id(m),
-                    labels: labels(m),
-                    properties: properties(m)
-                }) AS m_nodes
+            asset_list,
+            total_number_of_assets,
+            collect(DISTINCT
+                coalesce(start.name, start.uid, toString(id(start))) +
+                ' -[' + type(r) + ']-> ' +
+                coalesce(end.name, end.uid, toString(id(end)))
+            ) AS relation_triplets;
             """
             # Call the Neo4j API via create_content()
             raw_result = await create_content(query)
@@ -479,7 +479,7 @@ def analytics_generate_and_run_code():
         model_client = current_model_client,
         tools = [execute_code],
         description = "An agent that generates Python code to print the file content and executes it via registered tool. ",
-        system_message = "Given a file path, generate Python code to print the content of the file. Write main() at the end, then execute the code via execute_code. Do not explain the code, only output the code.  Generate code without structural assumptions (keep to simple operations that cannot fail). Pre-installed packages: numpy, scapy, pandas, matplotlib, dpkt (for PCAP files). Print without truncation limits! ",
+        system_message = "Given a file path, generate Python code to print the content of the file as a JSON dump. Call main() at the end. Only output the code. No structural assumptions. Pre-installed packages: tabulate, numpy, scapy, pandas, matplotlib, dpkt (for PCAP files). ",
         max_tool_iterations = 1,
         model_context=BufferedChatCompletionContext(buffer_size=1)
     )
