@@ -1,794 +1,134 @@
-curl -X POST http://127.0.0.1:5005/update_playbook \
-    -H "Content-Type: application/json" \
-    -d '{
-  "type": "playbook",
-  "spec_version": "cacao-2.0",
-  "id": "playbook--f057601c-931d-4c6a-8ee2-f97f92a32e72",
-  "name": "Chat4XAI Playbook",
-  "description": "0",
-  "created_by": "identity--defa460a-7fbb-4af1-8947-c80c04e57e1c",
-  "created": "2024-10-15T13:14:30.383119Z",
-  "modified": "2024-10-15T13:14:30.383119Z",
-  "external_reference": {
-    "took": 12,
-    "timed_out": false,
-    "_shards": { "total": 273, "successful": 273, "skipped": 0, "failed": 0 },
-    "hits": {
-      "total": { "value": 13, "relation": "eq" },
-      "max_score": 0.2876821,
-      "hits": [
-        {
-          "_index": "wazuh-alerts-4.x-2024.09.25",
-          "_id": "SEuPKpIBxXkVgQeyI3RJ",
-          "_score": 0.2876821,
-          "_source": {
-            "agent": { "name": "wazuh.manager", "id": "000" },
-            "manager": { "name": "wazuh.manager" },
-            "data": {
-              "Target": [
-                {
-                  "User": "user",
-                  "IP": "10.250.100.52",
-                  "Hostname": "dynabic-csms.trsc.net",
-                  "Location": "PPC Innovation Hub"
-                }
-              ],
-              "Description": "Potential DoS against the CSMS",
-              "Category": [
-                "Attempt.Exploit",
-                "Attempt.Login",
-                "Availability.DoS",
-                "Availability.DDoS"
-              ],
-              "Version": "2.D.V0X",
-              "Priority": "Medium",
-              "CreateTime": "2024-09-25T19:01:13.491662",
-              "StartTime": "2024-09-25T19:01:13.491676",
-              "ID": "1625287f-f910-401b-9015-6c17a876b83d",
-              "Analyzer": {
-                "Type": "Cyber",
-                "Category": ["SIEM", "LOG"],
-                "IP": "192.168.21.35",
-                "Hostname": "wazuh.trsc.net",
-                "Model": "Wazuh 4.8",
-                "Data": ["Log"],
-                "Method": ["Monitor", "Signature"],
-                "Name": "DYNABIC UC1"
-              },
-              "Source": [{ "IP": "10.250.100.55" }],
-              "Sensor": [
-                {
-                  "IP": "192.168.21.35",
-                  "Hostname": null,
-                  "Model": null,
-                  "Name": "ocppflowmeter",
-                  "Location": "PPC Innovation Hub"
-                }
-              ]
-            },
-            "rule": {
-              "firedtimes": 1,
-              "mail": true,
-              "level": 15,
-              "description": "Potential DoS against the CSMS",
-              "groups": [
-                "DYNABIC",
-                "DDOS",
-                "DOSAvailability.DoS",
-                " Availability.DDoS"
-              ],
-              "mitre": {
-                "technique": ["Network Denial of Service"],
-                "id": ["T1498"],
-                "tactic": ["Impact"]
-              },
-              "id": "100002"
-            },
-            "decoder": { "name": "json" },
-            "full_log": "{\"Version\": \"2.D.V0X\", \"ID\": \"1625287f-f910-401b-9015-6c17a876b83d\", \"Description\": \"Potential DoS against the CSMS\", \"Priority\": \"Medium\", \"CreateTime\": \"2024-09-25T19:01:13.491662\", \"StartTime\": \"2024-09-25T19:01:13.491676\", \"Category\": [\"Attempt.Exploit\", \"Attempt.Login\", \"Availability.DoS\", \"Availability.DDoS\"], \"Analyzer\": {\"Name\": \"DYNABIC UC1\", \"Hostname\": \"wazuh.trsc.net\", \"Type\": \"Cyber\", \"Model\": \"Wazuh 4.8\", \"Category\": [\"SIEM\", \"LOG\"], \"Data\": [\"Log\"], \"Method\": [\"Monitor\", \"Signature\"], \"IP\": \"192.168.21.35\"}, \"Sensor\": [{\"IP\": \"192.168.21.35\", \"Name\": \"ocppflowmeter\", \"Hostname\": null, \"Model\": null, \"Location\": \"PPC Innovation Hub\"}], \"Source\": [{\"IP\": \"10.250.100.55\"}], \"Target\": [{\"IP\": \"10.250.100.52\", \"Hostname\": \"dynabic-csms.trsc.net\", \"Location\": \"PPC Innovation Hub\", \"User\": \"user\"}]}",
-            "input": { "type": "log" },
-            "@timestamp": "2024-09-25T19:01:13.639Z",
-            "location": "API-Webhook",
-            "id": "1727290873.32661654",
-            "timestamp": "2024-09-25T19:01:13.639+0000"
-          }
-        },
-        {
-          "_index": "wazuh-alerts-4.x-2024.10.08",
-          "_id": "Qz0vbpIBbMZB1RHuKXsm",
-          "_score": 0.2876821,
-          "_source": {
-            "agent": { "name": "wazuh.manager", "id": "000" },
-            "manager": { "name": "wazuh.manager" },
-            "data": {
-              "Target": [
-                {
-                  "User": "user",
-                  "IP": "10.250.100.52",
-                  "Hostname": "dynabic-csms.trsc.net",
-                  "Location": "PPC Innovation Hub"
-                }
-              ],
-              "Description": "Potential DoS against the CSMS",
-              "Category": [
-                "Attempt.Exploit",
-                "Attempt.Login",
-                "Availability.DoS",
-                "Availability.DDoS"
-              ],
-              "Version": "2.D.V0X",
-              "Priority": "Medium",
-              "CreateTime": "2024-10-08T22:10:34.817827",
-              "StartTime": "2024-10-08T22:10:34.817841",
-              "ID": "7df542ab-0125-4b6a-be81-e35a4e3b013c",
-              "Analyzer": {
-                "Type": "Cyber",
-                "Category": ["SIEM", "LOG"],
-                "IP": "192.168.21.35",
-                "Hostname": "wazuh.trsc.net",
-                "Model": "Wazuh 4.8",
-                "Data": ["Log"],
-                "Method": ["Monitor", "Signature"],
-                "Name": "DYNABIC UC1"
-              },
-              "Source": [{ "IP": "10.250.100.55" }],
-              "Sensor": [
-                {
-                  "IP": "192.168.21.35",
-                  "Hostname": null,
-                  "Model": null,
-                  "Name": "ocppflowmeter",
-                  "Location": "PPC Innovation Hub"
-                }
-              ]
-            },
-            "rule": {
-              "firedtimes": 1,
-              "mail": true,
-              "level": 15,
-              "description": "Potential DoS against the CSMS",
-              "groups": ["DYNABIC", "Availability.DoS", "Availability.DDoS"],
-              "mitre": {
-                "technique": ["Network Denial of Service"],
-                "id": ["T1498"],
-                "tactic": ["Impact"]
-              },
-              "id": "100002"
-            },
-            "decoder": { "name": "json" },
-            "full_log": "{\"Version\": \"2.D.V0X\", \"ID\": \"7df542ab-0125-4b6a-be81-e35a4e3b013c\", \"Description\": \"Potential DoS against the CSMS\", \"Priority\": \"Medium\", \"CreateTime\": \"2024-10-08T22:10:34.817827\", \"StartTime\": \"2024-10-08T22:10:34.817841\", \"Category\": [\"Attempt.Exploit\", \"Attempt.Login\", \"Availability.DoS\", \"Availability.DDoS\"], \"Analyzer\": {\"Name\": \"DYNABIC UC1\", \"Hostname\": \"wazuh.trsc.net\", \"Type\": \"Cyber\", \"Model\": \"Wazuh 4.8\", \"Category\": [\"SIEM\", \"LOG\"], \"Data\": [\"Log\"], \"Method\": [\"Monitor\", \"Signature\"], \"IP\": \"192.168.21.35\"}, \"Sensor\": [{\"IP\": \"192.168.21.35\", \"Name\": \"ocppflowmeter\", \"Hostname\": null, \"Model\": null, \"Location\": \"PPC Innovation Hub\"}], \"Source\": [{\"IP\": \"10.250.100.55\"}], \"Target\": [{\"IP\": \"10.250.100.52\", \"Hostname\": \"dynabic-csms.trsc.net\", \"Location\": \"PPC Innovation Hub\", \"User\": \"user\"}]}",
-            "input": { "type": "log" },
-            "@timestamp": "2024-10-08T22:10:35.159Z",
-            "location": "API-Webhook",
-            "id": "1728425435.43210467",
-            "timestamp": "2024-10-08T22:10:35.159+0000"
-          }
-        },
-        {
-          "_index": "wazuh-alerts-4.x-2024.09.26",
-          "_id": "gUtyL5IBxXkVgQeyvqN3",
-          "_score": 0.2876821,
-          "_source": {
-            "agent": { "name": "wazuh.manager", "id": "000" },
-            "manager": { "name": "wazuh.manager" },
-            "data": {
-              "Target": [
-                {
-                  "User": "user",
-                  "IP": "10.250.100.52",
-                  "Hostname": "dynabic-csms.trsc.net",
-                  "Location": "PPC Innovation Hub"
-                }
-              ],
-              "Description": "Potential DoS against the CSMS",
-              "Category": [
-                "Attempt.Exploit",
-                "Attempt.Login",
-                "Availability.DoS",
-                "Availability.DDoS"
-              ],
-              "Version": "2.D.V0X",
-              "Priority": "Medium",
-              "CreateTime": "2024-09-26T20:48:17.916457",
-              "StartTime": "2024-09-26T20:48:17.916481",
-              "ID": "cdecbc29-1fc9-42c0-92c3-beedd5ccb60f",
-              "Analyzer": {
-                "Type": "Cyber",
-                "Category": ["SIEM", "LOG"],
-                "IP": "192.168.21.35",
-                "Hostname": "wazuh.trsc.net",
-                "Model": "Wazuh 4.8",
-                "Data": ["Log"],
-                "Method": ["Monitor", "Signature"],
-                "Name": "DYNABIC UC1"
-              },
-              "Source": [{ "IP": "10.250.100.55" }],
-              "Sensor": [
-                {
-                  "IP": "192.168.21.35",
-                  "Hostname": null,
-                  "Model": null,
-                  "Name": "ocppflowmeter",
-                  "Location": "PPC Innovation Hub"
-                }
-              ]
-            },
-            "rule": {
-              "firedtimes": 1,
-              "mail": true,
-              "level": 15,
-              "description": "Potential DoS against the CSMS",
-              "groups": [
-                "DYNABIC",
-                "DDOS",
-                "DOSAvailability.DoS",
-                " Availability.DDoS"
-              ],
-              "mitre": {
-                "technique": ["Network Denial of Service"],
-                "id": ["T1498"],
-                "tactic": ["Impact"]
-              },
-              "id": "100002"
-            },
-            "decoder": { "name": "json" },
-            "full_log": "{\"Version\": \"2.D.V0X\", \"ID\": \"cdecbc29-1fc9-42c0-92c3-beedd5ccb60f\", \"Description\": \"Potential DoS against the CSMS\", \"Priority\": \"Medium\", \"CreateTime\": \"2024-09-26T20:48:17.916457\", \"StartTime\": \"2024-09-26T20:48:17.916481\", \"Category\": [\"Attempt.Exploit\", \"Attempt.Login\", \"Availability.DoS\", \"Availability.DDoS\"], \"Analyzer\": {\"Name\": \"DYNABIC UC1\", \"Hostname\": \"wazuh.trsc.net\", \"Type\": \"Cyber\", \"Model\": \"Wazuh 4.8\", \"Category\": [\"SIEM\", \"LOG\"], \"Data\": [\"Log\"], \"Method\": [\"Monitor\", \"Signature\"], \"IP\": \"192.168.21.35\"}, \"Sensor\": [{\"IP\": \"192.168.21.35\", \"Name\": \"ocppflowmeter\", \"Hostname\": null, \"Model\": null, \"Location\": \"PPC Innovation Hub\"}], \"Source\": [{\"IP\": \"10.250.100.55\"}], \"Target\": [{\"IP\": \"10.250.100.52\", \"Hostname\": \"dynabic-csms.trsc.net\", \"Location\": \"PPC Innovation Hub\", \"User\": \"user\"}]}",
-            "input": { "type": "log" },
-            "@timestamp": "2024-09-26T17:48:17.397Z",
-            "location": "API-Webhook",
-            "id": "1727372897.31159678",
-            "timestamp": "2024-09-26T17:48:17.397+0000"
-          }
-        },
-        {
-          "_index": "wazuh-alerts-4.x-2024.09.22",
-          "_id": "X0qIG5IBxXkVgQeyguuR",
-          "_score": 0.18232156,
-          "_source": {
-            "agent": { "name": "wazuh.manager", "id": "000" },
-            "manager": { "name": "wazuh.manager" },
-            "data": {
-              "Target": [
-                {
-                  "User": "user",
-                  "IP": "10.250.100.52",
-                  "Hostname": "dynabic-csms.trsc.net",
-                  "Location": "PPC Innovation Hub"
-                }
-              ],
-              "Description": "Potential DoS against the CSMS",
-              "Category": [
-                "Attempt.Exploit",
-                "Attempt.Login",
-                "Availability.DoS",
-                "Availability.DDoS"
-              ],
-              "Version": "2.D.V0X",
-              "Priority": "Medium",
-              "CreateTime": "2024-09-22T23:59:38.290429",
-              "StartTime": "2024-09-22T23:59:38.290456",
-              "ID": "b0015ed6-5698-47a0-ac14-bf32c12d56d8",
-              "Analyzer": {
-                "Type": "Cyber",
-                "Category": ["SIEM", "LOG"],
-                "IP": "192.168.21.35",
-                "Hostname": "wazuh.trsc.net",
-                "Model": "Wazuh 4.8",
-                "Data": ["Log"],
-                "Method": ["Monitor", "Signature"],
-                "Name": "DYNABIC UC1"
-              },
-              "Source": [{ "IP": "10.250.100.55" }],
-              "Sensor": [
-                {
-                  "IP": "192.168.21.35",
-                  "Hostname": null,
-                  "Model": null,
-                  "Name": "ocppflowmeter",
-                  "Location": "PPC Innovation Hub"
-                }
-              ]
-            },
-            "rule": {
-              "firedtimes": 1,
-              "mail": true,
-              "level": 15,
-              "description": "Potential DoS against the CSMS",
-              "groups": [
-                "DYNABIC",
-                "DDOS",
-                "DOSAvailability.DoS",
-                " Availability.DDoS"
-              ],
-              "mitre": {
-                "technique": ["Network Denial of Service"],
-                "id": ["T1498"],
-                "tactic": ["Impact"]
-              },
-              "id": "100002"
-            },
-            "decoder": { "name": "json" },
-            "full_log": "{\"Version\": \"2.D.V0X\", \"ID\": \"b0015ed6-5698-47a0-ac14-bf32c12d56d8\", \"Description\": \"Potential DoS against the CSMS\", \"Priority\": \"Medium\", \"CreateTime\": \"2024-09-22T23:59:38.290429\", \"StartTime\": \"2024-09-22T23:59:38.290456\", \"Category\": [\"Attempt.Exploit\", \"Attempt.Login\", \"Availability.DoS\", \"Availability.DDoS\"], \"Analyzer\": {\"Name\": \"DYNABIC UC1\", \"Hostname\": \"wazuh.trsc.net\", \"Type\": \"Cyber\", \"Model\": \"Wazuh 4.8\", \"Category\": [\"SIEM\", \"LOG\"], \"Data\": [\"Log\"], \"Method\": [\"Monitor\", \"Signature\"], \"IP\": \"192.168.21.35\"}, \"Sensor\": [{\"IP\": \"192.168.21.35\", \"Name\": \"ocppflowmeter\", \"Hostname\": null, \"Model\": null, \"Location\": \"PPC Innovation Hub\"}], \"Source\": [{\"IP\": \"10.250.100.55\"}], \"Target\": [{\"IP\": \"10.250.100.52\", \"Hostname\": \"dynabic-csms.trsc.net\", \"Location\": \"PPC Innovation Hub\", \"User\": \"user\"}]}",
-            "input": { "type": "log" },
-            "@timestamp": "2024-09-22T20:59:38.944Z",
-            "location": "API-Webhook",
-            "id": "1727038778.36108961",
-            "timestamp": "2024-09-22T20:59:38.944+0000"
-          }
-        },
-        {
-          "_index": "wazuh-alerts-4.x-2024.09.22",
-          "_id": "PEqgG5IBxXkVgQeywuwV",
-          "_score": 0.18232156,
-          "_source": {
-            "agent": { "name": "wazuh.manager", "id": "000" },
-            "manager": { "name": "wazuh.manager" },
-            "data": {
-              "Target": [
-                {
-                  "User": "user",
-                  "IP": "10.250.100.52",
-                  "Hostname": "dynabic-csms.trsc.net",
-                  "Location": "PPC Innovation Hub"
-                }
-              ],
-              "Description": "Potential DoS against the CSMS",
-              "Category": [
-                "Attempt.Exploit",
-                "Attempt.Login",
-                "Availability.DoS",
-                "Availability.DDoS"
-              ],
-              "Version": "2.D.V0X",
-              "Priority": "Medium",
-              "CreateTime": "2024-09-22T21:26:06.402028",
-              "StartTime": "2024-09-22T21:26:06.402042",
-              "ID": "c6623f9e-c2da-410c-9edc-747c77cf0ead",
-              "Analyzer": {
-                "Type": "Cyber",
-                "Category": ["SIEM", "LOG"],
-                "IP": "192.168.21.35",
-                "Hostname": "wazuh.trsc.net",
-                "Model": "Wazuh 4.8",
-                "Data": ["Log"],
-                "Method": ["Monitor", "Signature"],
-                "Name": "DYNABIC UC1"
-              },
-              "Source": [{ "IP": "10.250.100.55" }],
-              "Sensor": [
-                {
-                  "IP": "192.168.21.35",
-                  "Hostname": null,
-                  "Model": null,
-                  "Name": "ocppflowmeter",
-                  "Location": "PPC Innovation Hub"
-                }
-              ]
-            },
-            "rule": {
-              "firedtimes": 1,
-              "mail": true,
-              "level": 15,
-              "description": "Potential DoS against the CSMS",
-              "groups": [
-                "DYNABIC",
-                "DDOS",
-                "DOSAvailability.DoS",
-                " Availability.DDoS"
-              ],
-              "mitre": {
-                "technique": ["Network Denial of Service"],
-                "id": ["T1498"],
-                "tactic": ["Impact"]
-              },
-              "id": "100002"
-            },
-            "decoder": { "name": "json" },
-            "full_log": "{\"Version\": \"2.D.V0X\", \"ID\": \"c6623f9e-c2da-410c-9edc-747c77cf0ead\", \"Description\": \"Potential DoS against the CSMS\", \"Priority\": \"Medium\", \"CreateTime\": \"2024-09-22T21:26:06.402028\", \"StartTime\": \"2024-09-22T21:26:06.402042\", \"Category\": [\"Attempt.Exploit\", \"Attempt.Login\", \"Availability.DoS\", \"Availability.DDoS\"], \"Analyzer\": {\"Name\": \"DYNABIC UC1\", \"Hostname\": \"wazuh.trsc.net\", \"Type\": \"Cyber\", \"Model\": \"Wazuh 4.8\", \"Category\": [\"SIEM\", \"LOG\"], \"Data\": [\"Log\"], \"Method\": [\"Monitor\", \"Signature\"], \"IP\": \"192.168.21.35\"}, \"Sensor\": [{\"IP\": \"192.168.21.35\", \"Name\": \"ocppflowmeter\", \"Hostname\": null, \"Model\": null, \"Location\": \"PPC Innovation Hub\"}], \"Source\": [{\"IP\": \"10.250.100.55\"}], \"Target\": [{\"IP\": \"10.250.100.52\", \"Hostname\": \"dynabic-csms.trsc.net\", \"Location\": \"PPC Innovation Hub\", \"User\": \"user\"}]}",
-            "input": { "type": "log" },
-            "@timestamp": "2024-09-22T21:26:06.491Z",
-            "location": "API-Webhook",
-            "id": "1727040366.36825041",
-            "timestamp": "2024-09-22T21:26:06.491+0000"
-          }
-        },
-        {
-          "_index": "wazuh-alerts-4.x-2024.09.23",
-          "_id": "1ErJHZIBxXkVgQeyS_-J",
-          "_score": 0.18232156,
-          "_source": {
-            "agent": { "name": "wazuh.manager", "id": "000" },
-            "manager": { "name": "wazuh.manager" },
-            "data": {
-              "Target": [
-                {
-                  "User": "user",
-                  "IP": "10.250.100.52",
-                  "Hostname": "dynabic-csms.trsc.net",
-                  "Location": "PPC Innovation Hub"
-                }
-              ],
-              "Description": "Potential DoS against the CSMS",
-              "Category": [
-                "Attempt.Exploit",
-                "Attempt.Login",
-                "Availability.DoS",
-                "Availability.DDoS"
-              ],
-              "Version": "2.D.V0X",
-              "Priority": "Medium",
-              "CreateTime": "2024-09-23T07:29:37.385003",
-              "StartTime": "2024-09-23T07:29:37.385017",
-              "ID": "20eced37-b3f8-4385-ae31-4e4eb391e083",
-              "Analyzer": {
-                "Type": "Cyber",
-                "Category": ["SIEM", "LOG"],
-                "IP": "192.168.21.35",
-                "Hostname": "wazuh.trsc.net",
-                "Model": "Wazuh 4.8",
-                "Data": ["Log"],
-                "Method": ["Monitor", "Signature"],
-                "Name": "DYNABIC UC1"
-              },
-              "Source": [{ "IP": "10.250.100.55" }],
-              "Sensor": [
-                {
-                  "IP": "192.168.21.35",
-                  "Hostname": null,
-                  "Model": null,
-                  "Name": "ocppflowmeter",
-                  "Location": "PPC Innovation Hub"
-                }
-              ]
-            },
-            "rule": {
-              "firedtimes": 1,
-              "mail": true,
-              "level": 15,
-              "description": "Potential DoS against the CSMS",
-              "groups": [
-                "DYNABIC",
-                "DDOS",
-                "DOSAvailability.DoS",
-                " Availability.DDoS"
-              ],
-              "mitre": {
-                "technique": ["Network Denial of Service"],
-                "id": ["T1498"],
-                "tactic": ["Impact"]
-              },
-              "id": "100002"
-            },
-            "decoder": { "name": "json" },
-            "full_log": "{\"Version\": \"2.D.V0X\", \"ID\": \"20eced37-b3f8-4385-ae31-4e4eb391e083\", \"Description\": \"Potential DoS against the CSMS\", \"Priority\": \"Medium\", \"CreateTime\": \"2024-09-23T07:29:37.385003\", \"StartTime\": \"2024-09-23T07:29:37.385017\", \"Category\": [\"Attempt.Exploit\", \"Attempt.Login\", \"Availability.DoS\", \"Availability.DDoS\"], \"Analyzer\": {\"Name\": \"DYNABIC UC1\", \"Hostname\": \"wazuh.trsc.net\", \"Type\": \"Cyber\", \"Model\": \"Wazuh 4.8\", \"Category\": [\"SIEM\", \"LOG\"], \"Data\": [\"Log\"], \"Method\": [\"Monitor\", \"Signature\"], \"IP\": \"192.168.21.35\"}, \"Sensor\": [{\"IP\": \"192.168.21.35\", \"Name\": \"ocppflowmeter\", \"Hostname\": null, \"Model\": null, \"Location\": \"PPC Innovation Hub\"}], \"Source\": [{\"IP\": \"10.250.100.55\"}], \"Target\": [{\"IP\": \"10.250.100.52\", \"Hostname\": \"dynabic-csms.trsc.net\", \"Location\": \"PPC Innovation Hub\", \"User\": \"user\"}]}",
-            "input": { "type": "log" },
-            "@timestamp": "2024-09-23T07:29:37.466Z",
-            "location": "API-Webhook",
-            "id": "1727076577.12974248",
-            "timestamp": "2024-09-23T07:29:37.466+0000"
-          }
-        },
-        {
-          "_index": "wazuh-alerts-4.x-2024.09.23",
-          "_id": "70rLHZIBxXkVgQeyQ_98",
-          "_score": 0.18232156,
-          "_source": {
-            "agent": { "name": "wazuh.manager", "id": "000" },
-            "manager": { "name": "wazuh.manager" },
-            "data": {
-              "Target": [
-                {
-                  "User": "user",
-                  "IP": "10.250.100.52",
-                  "Hostname": "dynabic-csms.trsc.net",
-                  "Location": "PPC Innovation Hub"
-                }
-              ],
-              "Description": "Potential DoS against the CSMS",
-              "Category": [
-                "Attempt.Exploit",
-                "Attempt.Login",
-                "Availability.DoS",
-                "Availability.DDoS"
-              ],
-              "Version": "2.D.V0X",
-              "Priority": "Medium",
-              "CreateTime": "2024-09-23T07:31:43.647694",
-              "StartTime": "2024-09-23T07:31:43.647706",
-              "ID": "4ca9ee1a-dc64-4859-ae81-7698c23be5b8",
-              "Analyzer": {
-                "Type": "Cyber",
-                "Category": ["SIEM", "LOG"],
-                "IP": "192.168.21.35",
-                "Hostname": "wazuh.trsc.net",
-                "Model": "Wazuh 4.8",
-                "Data": ["Log"],
-                "Method": ["Monitor", "Signature"],
-                "Name": "DYNABIC UC1"
-              },
-              "Source": [{ "IP": "10.250.100.55" }],
-              "Sensor": [
-                {
-                  "IP": "192.168.21.35",
-                  "Hostname": null,
-                  "Model": null,
-                  "Name": "ocppflowmeter",
-                  "Location": "PPC Innovation Hub"
-                }
-              ]
-            },
-            "rule": {
-              "firedtimes": 3,
-              "mail": true,
-              "level": 15,
-              "description": "Potential DoS against the CSMS",
-              "groups": [
-                "DYNABIC",
-                "DDOS",
-                "DOSAvailability.DoS",
-                " Availability.DDoS"
-              ],
-              "mitre": {
-                "technique": ["Network Denial of Service"],
-                "id": ["T1498"],
-                "tactic": ["Impact"]
-              },
-              "id": "100002"
-            },
-            "decoder": { "name": "json" },
-            "full_log": "{\"Version\": \"2.D.V0X\", \"ID\": \"4ca9ee1a-dc64-4859-ae81-7698c23be5b8\", \"Description\": \"Potential DoS against the CSMS\", \"Priority\": \"Medium\", \"CreateTime\": \"2024-09-23T07:31:43.647694\", \"StartTime\": \"2024-09-23T07:31:43.647706\", \"Category\": [\"Attempt.Exploit\", \"Attempt.Login\", \"Availability.DoS\", \"Availability.DDoS\"], \"Analyzer\": {\"Name\": \"DYNABIC UC1\", \"Hostname\": \"wazuh.trsc.net\", \"Type\": \"Cyber\", \"Model\": \"Wazuh 4.8\", \"Category\": [\"SIEM\", \"LOG\"], \"Data\": [\"Log\"], \"Method\": [\"Monitor\", \"Signature\"], \"IP\": \"192.168.21.35\"}, \"Sensor\": [{\"IP\": \"192.168.21.35\", \"Name\": \"ocppflowmeter\", \"Hostname\": null, \"Model\": null, \"Location\": \"PPC Innovation Hub\"}], \"Source\": [{\"IP\": \"10.250.100.55\"}], \"Target\": [{\"IP\": \"10.250.100.52\", \"Hostname\": \"dynabic-csms.trsc.net\", \"Location\": \"PPC Innovation Hub\", \"User\": \"user\"}]}",
-            "input": { "type": "log" },
-            "@timestamp": "2024-09-23T07:31:43.749Z",
-            "location": "API-Webhook",
-            "id": "1727076703.13025193",
-            "timestamp": "2024-09-23T07:31:43.749+0000"
-          }
-        },
-        {
-          "_index": "wazuh-alerts-4.x-2024.10.10",
-          "_id": "pj2Bd5IBbMZB1RHu4-4q",
-          "_score": 0.18232156,
-          "_source": {
-            "agent": { "name": "wazuh.manager", "id": "000" },
-            "manager": { "name": "wazuh.manager" },
-            "data": {
-              "Target": [
-                {
-                  "User": "user",
-                  "IP": "10.250.100.52",
-                  "Hostname": "dynabic-csms.trsc.net",
-                  "Location": "PPC Innovation Hub"
-                }
-              ],
-              "Description": "Potential DoS against the CSMS",
-              "Category": [
-                "Attempt.Exploit",
-                "Attempt.Login",
-                "Availability.DoS",
-                "Availability.DDoS"
-              ],
-              "Version": "2.D.V0X",
-              "Priority": "Medium",
-              "CreateTime": "2024-10-10T20:37:27.620926",
-              "StartTime": "2024-10-10T20:37:27.620935",
-              "ID": "ff5c431c-bd12-48e0-80b3-28bdd85ed768",
-              "Analyzer": {
-                "Type": "Cyber",
-                "Category": ["SIEM", "LOG"],
-                "IP": "192.168.21.35",
-                "Hostname": "wazuh.trsc.net",
-                "Model": "Wazuh 4.8",
-                "Data": ["Log"],
-                "Method": ["Monitor", "Signature"],
-                "Name": "DYNABIC UC1"
-              },
-              "Source": [{ "IP": "10.250.100.55" }],
-              "Sensor": [
-                {
-                  "IP": "192.168.21.35",
-                  "Hostname": null,
-                  "Model": null,
-                  "Name": "ocppflowmeter",
-                  "Location": "PPC Innovation Hub"
-                }
-              ]
-            },
-            "rule": {
-              "firedtimes": 1,
-              "mail": true,
-              "level": 15,
-              "description": "Potential DoS against the CSMS",
-              "groups": ["DYNABIC", "Availability.DoS", "Availability.DDoS"],
-              "mitre": {
-                "technique": ["Network Denial of Service"],
-                "id": ["T1498"],
-                "tactic": ["Impact"]
-              },
-              "id": "100002"
-            },
-            "decoder": { "name": "json" },
-            "full_log": "{\"Version\": \"2.D.V0X\", \"ID\": \"ff5c431c-bd12-48e0-80b3-28bdd85ed768\", \"Description\": \"Potential DoS against the CSMS\", \"Priority\": \"Medium\", \"CreateTime\": \"2024-10-10T20:37:27.620926\", \"StartTime\": \"2024-10-10T20:37:27.620935\", \"Category\": [\"Attempt.Exploit\", \"Attempt.Login\", \"Availability.DoS\", \"Availability.DDoS\"], \"Analyzer\": {\"Name\": \"DYNABIC UC1\", \"Hostname\": \"wazuh.trsc.net\", \"Type\": \"Cyber\", \"Model\": \"Wazuh 4.8\", \"Category\": [\"SIEM\", \"LOG\"], \"Data\": [\"Log\"], \"Method\": [\"Monitor\", \"Signature\"], \"IP\": \"192.168.21.35\"}, \"Sensor\": [{\"IP\": \"192.168.21.35\", \"Name\": \"ocppflowmeter\", \"Hostname\": null, \"Model\": null, \"Location\": \"PPC Innovation Hub\"}], \"Source\": [{\"IP\": \"10.250.100.55\"}], \"Target\": [{\"IP\": \"10.250.100.52\", \"Hostname\": \"dynabic-csms.trsc.net\", \"Location\": \"PPC Innovation Hub\", \"User\": \"user\"}]}",
-            "input": { "type": "log" },
-            "@timestamp": "2024-10-10T17:37:28.190Z",
-            "location": "API-Webhook",
-            "id": "1728581848.30390281",
-            "timestamp": "2024-10-10T17:37:28.190+0000"
-          }
-        },
-        {
-          "_index": "wazuh-alerts-4.x-2024.10.10",
-          "_id": "Sz2Ud5IBbMZB1RHumO-I",
-          "_score": 0.18232156,
-          "_source": {
-            "agent": { "name": "wazuh.manager", "id": "000" },
-            "manager": { "name": "wazuh.manager" },
-            "data": {
-              "Target": [
-                {
-                  "User": "user",
-                  "IP": "10.250.100.52",
-                  "Hostname": "dynabic-csms.trsc.net",
-                  "Location": "PPC Innovation Hub"
-                }
-              ],
-              "Description": "Potential DoS against the CSMS",
-              "Category": [
-                "Attempt.Exploit",
-                "Attempt.Login",
-                "Availability.DoS",
-                "Availability.DDoS"
-              ],
-              "Version": "2.D.V0X",
-              "Priority": "Medium",
-              "CreateTime": "2024-10-10T20:57:58.157512",
-              "StartTime": "2024-10-10T20:57:58.157529",
-              "ID": "902ea791-bc2d-4b2c-b5dc-7d647a424096",
-              "Analyzer": {
-                "Type": "Cyber",
-                "Category": ["SIEM", "LOG"],
-                "IP": "192.168.21.35",
-                "Hostname": "wazuh.trsc.net",
-                "Model": "Wazuh 4.8",
-                "Data": ["Log"],
-                "Method": ["Monitor", "Signature"],
-                "Name": "DYNABIC UC1"
-              },
-              "Source": [{ "IP": "10.250.100.55" }],
-              "Sensor": [
-                {
-                  "IP": "192.168.21.35",
-                  "Hostname": null,
-                  "Model": null,
-                  "Name": "ocppflowmeter",
-                  "Location": "PPC Innovation Hub"
-                }
-              ]
-            },
-            "rule": {
-              "firedtimes": 2,
-              "mail": true,
-              "level": 15,
-              "description": "Potential DoS against the CSMS",
-              "groups": ["DYNABIC", "Availability.DoS", "Availability.DDoS"],
-              "mitre": {
-                "technique": ["Network Denial of Service"],
-                "id": ["T1498"],
-                "tactic": ["Impact"]
-              },
-              "id": "100002"
-            },
-            "decoder": { "name": "json" },
-            "full_log": "{\"Version\": \"2.D.V0X\", \"ID\": \"902ea791-bc2d-4b2c-b5dc-7d647a424096\", \"Description\": \"Potential DoS against the CSMS\", \"Priority\": \"Medium\", \"CreateTime\": \"2024-10-10T20:57:58.157512\", \"StartTime\": \"2024-10-10T20:57:58.157529\", \"Category\": [\"Attempt.Exploit\", \"Attempt.Login\", \"Availability.DoS\", \"Availability.DDoS\"], \"Analyzer\": {\"Name\": \"DYNABIC UC1\", \"Hostname\": \"wazuh.trsc.net\", \"Type\": \"Cyber\", \"Model\": \"Wazuh 4.8\", \"Category\": [\"SIEM\", \"LOG\"], \"Data\": [\"Log\"], \"Method\": [\"Monitor\", \"Signature\"], \"IP\": \"192.168.21.35\"}, \"Sensor\": [{\"IP\": \"192.168.21.35\", \"Name\": \"ocppflowmeter\", \"Hostname\": null, \"Model\": null, \"Location\": \"PPC Innovation Hub\"}], \"Source\": [{\"IP\": \"10.250.100.55\"}], \"Target\": [{\"IP\": \"10.250.100.52\", \"Hostname\": \"dynabic-csms.trsc.net\", \"Location\": \"PPC Innovation Hub\", \"User\": \"user\"}]}",
-            "input": { "type": "log" },
-            "@timestamp": "2024-10-10T17:57:58.356Z",
-            "location": "API-Webhook",
-            "id": "1728583078.30990682",
-            "timestamp": "2024-10-10T17:57:58.356+0000"
-          }
-        },
-        {
-          "_index": "wazuh-alerts-4.x-2024.09.23",
-          "_id": "6krKHZIBxXkVgQey0v8y",
-          "_score": 0.18232156,
-          "_source": {
-            "agent": { "name": "wazuh.manager", "id": "000" },
-            "manager": { "name": "wazuh.manager" },
-            "data": {
-              "Target": [
-                {
-                  "User": "user",
-                  "IP": "10.250.100.52",
-                  "Hostname": "dynabic-csms.trsc.net",
-                  "Location": "PPC Innovation Hub"
-                }
-              ],
-              "Description": "Potential DoS against the CSMS",
-              "Category": [
-                "Attempt.Exploit",
-                "Attempt.Login",
-                "Availability.DoS",
-                "Availability.DDoS"
-              ],
-              "Version": "2.D.V0X",
-              "Priority": "Medium",
-              "CreateTime": "2024-09-23T07:31:21.094394",
-              "StartTime": "2024-09-23T07:31:21.094407",
-              "ID": "18085437-f7a4-40af-967a-edb1a2bcb7f2",
-              "Analyzer": {
-                "Type": "Cyber",
-                "Category": ["SIEM", "LOG"],
-                "IP": "192.168.21.35",
-                "Hostname": "wazuh.trsc.net",
-                "Model": "Wazuh 4.8",
-                "Data": ["Log"],
-                "Method": ["Monitor", "Signature"],
-                "Name": "DYNABIC UC1"
-              },
-              "Source": [{ "IP": "10.250.100.55" }],
-              "Sensor": [
-                {
-                  "IP": "192.168.21.35",
-                  "Hostname": null,
-                  "Model": null,
-                  "Name": "ocppflowmeter",
-                  "Location": "PPC Innovation Hub"
-                }
-              ]
-            },
-            "rule": {
-              "firedtimes": 2,
-              "mail": true,
-              "level": 15,
-              "description": "Potential DoS against the CSMS",
-              "groups": [
-                "DYNABIC",
-                "DDOS",
-                "DOSAvailability.DoS",
-                " Availability.DDoS"
-              ],
-              "mitre": {
-                "technique": ["Network Denial of Service"],
-                "id": ["T1498"],
-                "tactic": ["Impact"]
-              },
-              "id": "100002"
-            },
-            "decoder": { "name": "json" },
-            "full_log": "{\"Version\": \"2.D.V0X\", \"ID\": \"18085437-f7a4-40af-967a-edb1a2bcb7f2\", \"Description\": \"Potential DoS against the CSMS\", \"Priority\": \"Medium\", \"CreateTime\": \"2024-09-23T07:31:21.094394\", \"StartTime\": \"2024-09-23T07:31:21.094407\", \"Category\": [\"Attempt.Exploit\", \"Attempt.Login\", \"Availability.DoS\", \"Availability.DDoS\"], \"Analyzer\": {\"Name\": \"DYNABIC UC1\", \"Hostname\": \"wazuh.trsc.net\", \"Type\": \"Cyber\", \"Model\": \"Wazuh 4.8\", \"Category\": [\"SIEM\", \"LOG\"], \"Data\": [\"Log\"], \"Method\": [\"Monitor\", \"Signature\"], \"IP\": \"192.168.21.35\"}, \"Sensor\": [{\"IP\": \"192.168.21.35\", \"Name\": \"ocppflowmeter\", \"Hostname\": null, \"Model\": null, \"Location\": \"PPC Innovation Hub\"}], \"Source\": [{\"IP\": \"10.250.100.55\"}], \"Target\": [{\"IP\": \"10.250.100.52\", \"Hostname\": \"dynabic-csms.trsc.net\", \"Location\": \"PPC Innovation Hub\", \"User\": \"user\"}]}",
-            "input": { "type": "log" },
-            "@timestamp": "2024-09-23T07:31:21.214Z",
-            "location": "API-Webhook",
-            "id": "1727076681.13010251",
-            "timestamp": "2024-09-23T07:31:21.214+0000"
-          }
-        }
-      ]
-    }
-  },
+{
   "agent_definitions": {
-    "organization--e944b2a8-1bc7-4c83-9205-52172e63740c": {
-      "type": "organization",
-      "name": "CSMS"
+    "organization--e688a706-990c-42e8-9bdf-ac64513ee7b0": {
+      "name": "ppc",
+      "type": "organization"
     }
   },
-  "workflow_start": "start--15e6aa6d-93aa-452a-8f99-f9bd68deac24",
-  "workflow": {
-    "start--15e6aa6d-93aa-452a-8f99-f9bd68deac24": {
-      "type": "start",
-      "name": "start workflow Block IP via Firewall",
-      "on_completion": "action--c6d6da1e-94e1-4dd7-8856-efc84a27ff80"
+  "created": "2025-11-19T12:01:17.434475Z",
+  "created_by": "identity--86d849bd-89eb-4d84-ad50-8622149ed9d7",
+  "description": "Rating: 99.9, Explanation: The following answer was deemed uncertain. ``` \nThe action 'block ip via firewall' could be chosen in the most recent timestep because it would help to achieve the goal of reducing the risk of a DoS attack, which is referred to as Risk3. However, the agent chose not to select this action because it would have a negative impact on the goal of Revenue compared to the chosen action.\n\nTaken action: Do Nothing \n```",
+  "external_reference": [
+    {
+      "id": "bundle--2efb3dd4-be67-4baa-b139-0f51657e2db8",
+      "objects": [
+        {
+          "created": "2025-10-23T15:36:43.000Z",
+          "extensions": {
+            "x-probe-id-ext": {
+              "extension_type": "property-extension",
+              "probe-id": "MMT-PROBE-1"
+            }
+          },
+          "id": "identity--19b035fb-8166-472b-abdd-5bc0dc2a8d23",
+          "identity_class": "organization",
+          "modified": "2025-10-23T15:36:43.000Z",
+          "name": "MMT-PROBE",
+          "spec_version": "2.1",
+          "type": "identity"
+        },
+        {
+          "created": "2025-10-23T15:36:43.000Z",
+          "created_by_ref": "identity--19b035fb-8166-472b-abdd-5bc0dc2a8d23",
+          "extensions": {
+            "x-observed-data-ext": {
+              "description": "Detection of a DDoS attack in OCPPFlowMeter traffic",
+              "extension_type": "property-extension"
+            }
+          },
+          "first_observed": "2025-10-23T15:36:43.000Z",
+          "id": "observed-data--9ad941d2-526d-4988-ba62-d9870569b603",
+          "last_observed": "2025-10-23T15:36:43.000Z",
+          "modified": "2025-10-23T15:36:43.000Z",
+          "number_observed": 34,
+          "object_refs": [
+            "ipv4-addr--540f782a-fc1f-4830-8b52-4b52c8f06ff6",
+            "ipv4-addr--cf8601c0-6cfc-4f86-8725-3a6c8c8b9f2b",
+            "x-attack-type--9b497c8c-36be-4fd6-91ce-a6bffe5d935c"
+          ],
+          "spec_version": "2.1",
+          "type": "observed-data"
+        },
+        {
+          "id": "ipv4-addr--540f782a-fc1f-4830-8b52-4b52c8f06ff6",
+          "type": "ipv4-addr",
+          "value": "192.168.21.210"
+        },
+        {
+          "id": "ipv4-addr--cf8601c0-6cfc-486-8725-3a6c8c8b9f2b",
+          "type": "ipv4-addr",
+          "value": "10.250.100.52"
+        },
+        {
+          "created": "2025-10-23T15:36:43.000Z",
+          "extensions": {
+            "x-attack-type-ext": {
+              "extension_type": "new-sdo"
+            },
+            "x-simulation-ext": {
+              "extension_type": "property-extension",
+              "simulation": "Simulated attack with id 196"
+            }
+          },
+          "external_references": [
+            {
+              "external_id": "T1498",
+              "source_name": "mitre-attack",
+              "url": "https://attack.mitre.org/techniques/T1498/"
+            }
+          ],
+          "id": "x-attack-type--9b497c8c-36be-4fd6-91ce-a6bffe5d935c",
+          "modified": "2025-10-23T15:36:43.000Z",
+          "type": "x-attack-type",
+          "user_id": "cyberattack_ocpp16_dos_flooding_heartbeat"
+        }
+      ],
+      "type": "bundle"
     },
-    "action--c6d6da1e-94e1-4dd7-8856-efc84a27ff80": {
-      "type": "action",
-      "name": "Block IP Firewall",
-      "description": "Update pfsense firewall policy to block a given external IP",
-      "agent": "organization--e944b2a8-1bc7-4c83-9205-52172e63740c",
-      "on_completion": "end--96b0beb2-33a2-4529-b2ee-d9273d0194ba",
-      "commands": [{ "type": "http-api" }]
+    {
+      "actions": [
+        "Do Nothing",
+        "Block IP via Firewall",
+        "Block IP via SDN Controller",
+        "Activate Honeypot",
+        "Deactivate Honeypot"
+      ],
+      "scenario": "1.1",
+      "type": "action space",
+      "version": "v0.0.1"
     },
-    "end--96b0beb2-33a2-4529-b2ee-d9273d0194ba": {
-      "type": "end",
-      "name": "end workflow Block IP via Firewall"
+    {
+      "human_in_the_loop": false,
+      "human_in_the_loop_decision": ""
     }
-  }
-}'
+  ],
+  "id": "playbook--b963cc8d-68d6-4459-8e31-074a05dc545a",
+  "modified": "2025-11-19T12:01:17.434475Z",
+  "name": "Chat4XAI Playbook",
+  "spec_version": "cacao-2.0",
+  "type": "playbook",
+  "workflow": {
+    "action--a4a0c412-f677-4bdc-9a7c-0be0ceb219f8": {
+      "agent": "organization--e688a706-990c-42e8-9bdf-ac64513ee7b0",
+      "commands": [
+        {
+          "type": "http-api"
+        }
+      ],
+      "description": "Update pfsense firewall policy to block a given external IP",
+      "name": "Block IP Firewall",
+      "on_completion": "end--0b47c53c-c885-40b5-93bb-4a9274cd35f5",
+      "type": "action"
+    },
+    "end--0b47c53c-c885-40b5-93bb-4a9274cd35f5": {
+      "name": "end workflow Block IP via Firewall",
+      "type": "end"
+    },
+    "start--ce0d5bad-b024-43dc-ac49-aec3825d64be": {
+      "name": "start workflow Block IP via Firewall",
+      "on_completion": "action--a4a0c412-f677-4bdc-9a7c-0be0ceb219f8",
+      "type": "start"
+    }
+  },
+  "workflow_start": "start--ce0d5bad-b024-43dc-ac49-aec3825d64be"
+}
