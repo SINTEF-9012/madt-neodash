@@ -1,0 +1,134 @@
+{
+  "agent_definitions": {
+    "organization--e688a706-990c-42e8-9bdf-ac64513ee7b0": {
+      "name": "ppc",
+      "type": "organization"
+    }
+  },
+  "created": "2025-11-19T12:01:17.434475Z",
+  "created_by": "identity--86d849bd-89eb-4d84-ad50-8622149ed9d7",
+  "description": "Rating: 99.9, Explanation: The following answer was deemed uncertain. ``` \nThe action 'block ip via SDN Controller' could be chosen in the most recent timestep because it would help to achieve the goal of reducing the risk of a DoS attack, which is referred to as Risk3. However, the agent chose not to select this action because it would have a negative impact on the goal of Revenue compared to the chosen action.\n\nTaken action: Do Nothing \n```",
+  "external_reference": [
+    {
+      "id": "bundle--2efb3dd4-be67-4baa-b139-0f51657e2db8",
+      "objects": [
+        {
+          "created": "2025-10-23T15:36:43.000Z",
+          "extensions": {
+            "x-probe-id-ext": {
+              "extension_type": "property-extension",
+              "probe-id": "MMT-PROBE-1"
+            }
+          },
+          "id": "identity--19b035fb-8166-472b-abdd-5bc0dc2a8d23",
+          "identity_class": "organization",
+          "modified": "2025-10-23T15:36:43.000Z",
+          "name": "MMT-PROBE",
+          "spec_version": "2.1",
+          "type": "identity"
+        },
+        {
+          "created": "2025-10-23T15:36:43.000Z",
+          "created_by_ref": "identity--19b035fb-8166-472b-abdd-5bc0dc2a8d23",
+          "extensions": {
+            "x-observed-data-ext": {
+              "description": "Detection of a DDoS attack in OCPPFlowMeter traffic",
+              "extension_type": "property-extension"
+            }
+          },
+          "first_observed": "2025-10-23T15:36:43.000Z",
+          "id": "observed-data--9ad941d2-526d-4988-ba62-d9870569b603",
+          "last_observed": "2025-10-23T15:36:43.000Z",
+          "modified": "2025-10-23T15:36:43.000Z",
+          "number_observed": 34,
+          "object_refs": [
+            "ipv4-addr--540f782a-fc1f-4830-8b52-4b52c8f06ff6",
+            "ipv4-addr--cf8601c0-6cfc-4f86-8725-3a6c8c8b9f2b",
+            "x-attack-type--9b497c8c-36be-4fd6-91ce-a6bffe5d935c"
+          ],
+          "spec_version": "2.1",
+          "type": "observed-data"
+        },
+        {
+          "id": "ipv4-addr--540f782a-fc1f-4830-8b52-4b52c8f06ff6",
+          "type": "ipv4-addr",
+          "value": "192.168.21.210"
+        },
+        {
+          "id": "ipv4-addr--cf8601c0-6cfc-486-8725-3a6c8c8b9f2b",
+          "type": "ipv4-addr",
+          "value": "10.250.100.52"
+        },
+        {
+          "created": "2025-10-23T15:36:43.000Z",
+          "extensions": {
+            "x-attack-type-ext": {
+              "extension_type": "new-sdo"
+            },
+            "x-simulation-ext": {
+              "extension_type": "property-extension",
+              "simulation": "Simulated attack with id 196"
+            }
+          },
+          "external_references": [
+            {
+              "external_id": "T1498",
+              "source_name": "mitre-attack",
+              "url": "https://attack.mitre.org/techniques/T1498/"
+            }
+          ],
+          "id": "x-attack-type--9b497c8c-36be-4fd6-91ce-a6bffe5d935c",
+          "modified": "2025-10-23T15:36:43.000Z",
+          "type": "x-attack-type",
+          "user_id": "cyberattack_ocpp16_dos_flooding_heartbeat"
+        }
+      ],
+      "type": "bundle"
+    },
+    {
+      "actions": [
+        "Do Nothing",
+        "Block IP via Firewall",
+        "Block IP via SDN Controller",
+        "Activate Honeypot",
+        "Deactivate Honeypot"
+      ],
+      "scenario": "1.1",
+      "type": "action space",
+      "version": "v0.0.1"
+    },
+    {
+      "human_in_the_loop": false,
+      "human_in_the_loop_decision": ""
+    }
+  ],
+  "id": "playbook--b963cc8d-68d6-4459-8e31-074a05dc545a",
+  "modified": "2025-11-19T12:01:17.434475Z",
+  "name": "Chat4XAI Playbook",
+  "spec_version": "cacao-2.0",
+  "type": "playbook",
+  "workflow": {
+    "action--a4a0c412-f677-4bdc-9a7c-0be0ceb219f8": {
+      "agent": "organization--e688a706-990c-42e8-9bdf-ac64513ee7b0",
+      "commands": [
+        {
+          "type": "http-api"
+        }
+      ],
+      "description": "Update Ryu firewall policy to block a given internal attacker IP",
+      "name": "Block IP SDN Controller",
+      "on_completion": "end--0b47c53c-c885-40b5-93bb-4a9274cd35f5",
+      "type": "action"
+    },
+    "end--0b47c53c-c885-40b5-93bb-4a9274cd35f5": {
+      "name": "end workflow Block IP via SDN Controller",
+      "type": "end"
+    },
+    "start--ce0d5bad-b024-43dc-ac49-aec3825d64be": {
+      "name": "start workflow Block IP via Firewall",
+      "on_completion": "action--a4a0c412-f677-4bdc-9a7c-0be0ceb219f8",
+      "type": "start"
+    }
+  },
+  "workflow_start": "start--ce0d5bad-b024-43dc-ac49-aec3825d64be"
+}

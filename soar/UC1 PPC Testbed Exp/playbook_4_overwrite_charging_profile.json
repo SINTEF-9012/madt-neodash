@@ -1,0 +1,166 @@
+
+{
+    "type": "playbook",
+    "spec_version": "cacao-2.0",
+    "id": "playbook--c0f02b0d-3b15-4991-8092-303613ccdb6d",
+    "name": "Chat4XAI Playbook DEMO UC1.2",
+    "description": "-0.0008388310670852661",
+    "created_by": "identity--3bd51e52-3d9d-4cbf-bbc2-ebcb7b85af1b",
+    "created": "2025-03-11T15:39:36.244656Z",
+    "modified": "2025-03-11T15:39:36.244656Z",
+    "external_references": [
+        {
+            "type": "bundle",
+            "id": "bundle--{generated_uuid}",
+            "objects": [
+                {
+                    "type": "identity",
+                    "spec_version": "2.1",
+                    "id": "identity--{generated_uuid}",
+                    "created": "2025-11-03",
+                    "modified": "2025-11-03",
+                    "name": "MMT-PROBE",
+                    "identity_class": "organization",
+                    "extensions": {
+                        "x-probe-id-ext": {
+                            "extension_type": "property-extension",
+                            "probe-id": "MMT-PROBE-1"
+                        }
+                    }
+                },
+                {
+                    "type": "observed-data",
+                    "spec_version": "2.1",
+                    "id": "observed-data--{generated_uuid}",
+                    "created": "2025-11-03",
+                    "modified": "2025-11-03",
+                    "first_observed": "2025-11-03",
+                    "last_observed": "2025-11-03",
+                    "number_observed": 1,
+                    "object_refs": [
+                        "ipv4-addr--540f782a-fc1f-4830-8b52-4b52c8f06ff6",
+                        "ipv4-addr--cf8601c0-6cfc-4f86-8725-3a6c8c8b9f2b",
+                        "x-attack-type--9b497c8c-36be-4fd6-91ce-a6bffe5d935c"
+                    ],
+                    "created_by_ref": "identity--{generated_uuid}",
+                    "extensions": {
+                        "x-observed-data-ext": {
+                            "extension_type": "property-extension",
+                            "description": "description"
+                        }
+                    }
+                },
+                {
+                    "type": "ipv4-addr--540f782a-fc1f-4830-8b52-4b52c8f06ff6",
+                    "id": "ipv4-addr",
+                    "value": "192.168.21.210"
+                },
+                {
+                    "type": "ipv4-addr--cf8601c0-6cfc-486-8725-3a6c8c8b9f2b",
+                    "id": "ipv4-addr",
+                    "value": "10.250.100.52"
+                },
+                {
+                    "type": "x-attack-type",
+                    "id": "x-attack-type--{attack_uuid}",
+                    "user_id": "attack_name",
+                    "created": "2025-11-03",
+                    "modified": "2025-11-03",
+                    "extensions": {
+                        "x-attack-type-ext": {
+                            "extension_type": "new-sdo"
+                        },
+                        "x-simulation-ext": {
+                            "extension_type": "property-extension",
+                            "simulation": "simulated|real"
+                        }
+                    },
+                    "external_references": [
+                        {
+                            "source_name": "mitre-attack",
+                            "url": "https://attack.mitre.org/techniques/{ttp_id}/",
+                            "external_id": "ttp_id"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "action spcae",
+            "version": "v0.0.1",
+            "use_case": "UC3.1",
+            "actions": [
+                "Do Nothing",
+                "Overwrite Charging Profiles"
+            ]
+        }
+    ],
+    "agent_definitions": {
+        "organization--4eea6a58-7dee-4d41-9c9a-14ba0166d24c": {
+            "type": "organization",
+            "name": "PPC"
+        }
+    },
+    "workflow_start": "start--01a57e10-81cd-402a-b7b9-1db36823ec77",
+    "workflow": {
+        "start--01a57e10-81cd-402a-b7b9-1db36823ec77": {
+            "type": "start",
+            "name": "start workflow Overwrite Charging Profiles",
+            "on_completion": "action--8b148e77-b919-4ec5-b9a9-61adddabf3bc"
+        },
+        "action--8b148e77-b919-4ec5-b9a9-61adddabf3bc": {
+            "type": "action",
+            "name": "Overwrite Charging Profiles",
+            "description": "Retrieve Authentication and overwrite charginf profiles only for compromised chargepoints, matching the IP(s) from the alert",
+            "agent": "organization--4eea6a58-7dee-4d41-9c9a-14ba0166d24c",
+            "on_completion": "end--54615992-5e0b-421f-b056-21e534856004",
+            "commands": [
+                {
+                    "type": "http-api",
+                    "command": "POST  https://dynabic-csms.trsc.net/api/token/ HTTP/1.1",
+                    "content": "{'username': 'admin', 'password': 'admin'}",
+                    "headers": {
+                        "Accept": [
+                            "application/json"
+                        ],
+                        "Content-Type": [
+                            "application/json"
+                        ]
+                    }
+                },
+                {
+                    "type": "http-api",
+                    "command": "GET  https://dynabic-csms.trsc.net/api/chargepoint/ HTTP/1.1",
+                    "headers": {
+                        "Accept": [
+                            "application/json"
+                        ],
+                        "Authorization": [
+                            "Bearer <API_TOKEN_RECEIVED_IN_PREVIOUS_STEP>"
+                        ]
+                    }
+                },
+                {
+                    "type": "http-api",
+                    "command": "POST https://dynabic-csms.trsc.net/api/ocpp16/setchargingprofile/ HTTP/1.1",
+                    "content": "{'chargepoint_id': '<chargepoint_id>', 'sync': true, 'connector_id': 0, 'charging_profile_id': 1 }",
+                    "headers": {
+                        "Accept": [
+                            "application/json"
+                        ],
+                        "Authorization": [
+                            "Bearer <API_TOKEN_RECEIVED_IN_PREVIOUS_STEP>"
+                        ],
+                        "Content-Type": [
+                            "application/json"
+                        ]
+                    }
+                }
+            ]
+        },
+        "end--54615992-5e0b-421f-b056-21e534856004": {
+            "type": "end",
+            "name": "end workflow Overwrite Charging Profiles"
+        }
+    }
+}

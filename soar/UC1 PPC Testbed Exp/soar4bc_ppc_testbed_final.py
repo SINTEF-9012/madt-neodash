@@ -44,7 +44,7 @@ class Config:
     # Kafka Configuration
     KAFKA_SERVER: str = 'kafka.dynabic.dev:9092'
     KAFKA_USERNAME: str = 'soar4bc'
-    KAFKA_PASSWORD: str = 'xxxxx'
+    KAFKA_PASSWORD: str = 'xxxxxxxxxxxxxx'
     PLAYBOOK_TOPIC: str = 'UC1.SOAR4BC.playbook'
     TOPOLOGY_TOPIC: str = 'UC1.MADT4BC.full-topology'
     RESULT_TOPIC: str = 'UC1.SOAR4BC.result'
@@ -57,9 +57,9 @@ class Config:
     # External APIs
     SDN_CONTROLLER_URI: str = "http://127.0.0.1:8080/firewall/rules/00001ac506786f40"
     PFSENSE_URI: str = "https://10.250.100.1/api/v2/firewall/rule"
-    PFSENSE_API_KEY: str = 'xxxxxx'
+    PFSENSE_API_KEY: str = 'ae1ebac9cf11000fd84a833aa39c74a4'
     CSMS_URI: str = "https://dynabic-csms.trsc.net/api/ocpp16/setchargingprofile/"
-    CSMS_TOKEN: str = 'Bearer xxxxxx'
+    CSMS_TOKEN: str = 'Bearer pZCI6MSwidXNlcm5hbWUiOiJhZG1pbiIsImVtYWlsIjoiYy5kYWxhbWFna2FzQHBwY2dyb3VwLmNvbSJ9.y_I57gBNyyYYfOm9TRriZILDXe1zgSVUChNUGGRVZGY'
     
     # System Configuration
     HONEYPOT_IP: str = "10.250.100.50"
@@ -409,7 +409,7 @@ class Neo4jDashboard:
         response: str,
         reason: str,
         human_in_loop: str = "no",
-        human_decision: str = "auto",
+        human_decision: str = "n/a",
         target_uuid: str = None
     ):
         """Update SOAR response in dashboard"""
@@ -478,7 +478,7 @@ class ActionExecutor(ABC):
                 "details": details,
                 "timestamp": TimeTracker.get_timestamp(),
                 "human_in_the_loop": "yes" if human_in_loop else "no",
-                "human_in_the_loop_decision": human_decision if human_in_loop else "auto"
+                "human_in_the_loop_decision": human_decision if human_in_loop else "n/a"
             }
             producer.send(self.config.RESULT_TOPIC, result_payload)
             producer.flush()
@@ -562,7 +562,7 @@ class FirewallBlockExecutor(ActionExecutor):
                     "Block Attacker IP by pfSense",
                     "Potential DoS Detected Against CSMS",
                     human_in_loop="no",
-                    human_decision="disapproved",
+                    human_decision="n/a",
                     target_uuid=target_uuid
                 )
                 self.dashboard.update_attacker_status(attacker_ip, "Blocked", target_uuid)
@@ -672,11 +672,12 @@ class TrafficRedirectExecutor(ActionExecutor):
                 attacker_ip,
                 "Redirect Traffic to Honeypot",
                 "Traffic Redirection Activated",
+                human_in_loop="yes",
+                human_decision="approved",
                 target_uuid=target_uuid
             )
             self.dashboard.update_attacker_status(attacker_ip, "Redirecting Traffic")
-            
-            return {"status": "success", "message": "Traffic redirected successfully"}
+            return {"status": "success", "message": "Traffic redirected successfully", "human_in_the_loop": True, "human_in_the_loop_decision": "approved"}
         except subprocess.CalledProcessError as e:
             logger.error(f"Error redirecting traffic: {e}")
             return {"status": "error", "message": str(e)}

@@ -1,0 +1,239 @@
+{
+  "title": "SOAR4BC - Dashboard",
+  "version": "2.2",
+  "settings": {
+    "pagenumber": 0,
+    "editable": true,
+    "fullscreenEnabled": false,
+    "parameters": {
+      "main_selected_node": 33,
+      "undefined": "",
+      "undefined_display": ""
+    }
+  },
+  "pages": [
+    {
+      "title": "SOAR4BC - Main Page",
+      "reports": [
+        {
+          "title": "SOAR4BC Response",
+          "query": "MATCH p=(s:SOAR)-[r:RESPONSE]->(resp:RESPONSE)\nRETURN resp.ip AS Address, resp.response AS Response, resp.reason AS Reason\n\n\n",
+          "width": 12,
+          "height": 1,
+          "x": 0,
+          "y": 3,
+          "type": "table",
+          "selection": {},
+          "settings": {
+            "refreshButtonEnabled": true,
+            "refreshRate": 5
+          }
+        },
+        {
+          "title": "SOAR4BC Report",
+          "query": "MATCH p=(s:SOAR)-[r:RESPONSE]->(resp:RESPONSE)\nRETURN resp.ip AS `Attacker IP`, resp.response AS Response, resp.reason AS Reason, resp.timestamp as Time\n\n\n",
+          "width": 12,
+          "height": 1,
+          "x": 0,
+          "y": 2,
+          "type": "table",
+          "selection": {},
+          "settings": {
+            "refreshButtonEnabled": true,
+            "refreshRate": 5
+          }
+        },
+        {
+          "title": "SOAR4BC Detailed Report with Human in the Loop Decision",
+          "query": "MATCH p=(s:SOAR)-[r:RESPONSE]->(resp:RESPONSE)\nRETURN\n  resp.ip AS `Attacker IP`,\n  resp.response AS Response, \n  resp.reason AS Reason, \n  resp.timestamp AS Time, \n  resp.human_in_the_loop AS `Human In The Loop`, \n  resp.human_decision AS `Human Decision`\n\n\n\n\n",
+          "width": 12,
+          "height": 1,
+          "x": 0,
+          "y": 4,
+          "type": "table",
+          "selection": {},
+          "settings": {
+            "refreshButtonEnabled": true,
+            "refreshRate": 5
+          }
+        },
+        {
+          "title": "Knowledge Graph",
+          "query": "MATCH (n:ASSET)-[r]->(m:ASSET)\nRETURN n, r, m;\n\n\n\n",
+          "width": 5,
+          "height": 3,
+          "x": 0,
+          "y": 5,
+          "type": "graph",
+          "selection": {
+            "ASSET": "name"
+          },
+          "settings": {
+            "refreshButtonEnabled": true,
+            "refreshRate": 5
+          }
+        },
+        {
+          "title": "Use Case 1 - Detailed Description of Scenario",
+          "query": "MATCH (s:SOAR)-[r:RESPONSE]->(resp:RESPONSE)\nWITH resp\nORDER BY resp.timestamp DESC\nLIMIT 1\n\nWITH CASE\n  WHEN resp.response CONTAINS 'Ryu' OR resp.response CONTAINS 'SDN' THEN\n    '🟥 Use Case 1 – Scenario 1\n\nLocal attacker blocking using SDN controller.\n\nAttacker traffic is detected inside the EVCS network. \nAWARE4BC sent a playbook with “Block Attacker IPs via Ryu SDN Controller”. \nSOAR4BC extracts the source IPs and installs SDN firewall rules via the Ryu API. \nThe EVCS network is protected, the action result is pushed to Kafka, and the NEO4J dashboard is updated.'\n\n  WHEN resp.response CONTAINS 'pfSense' THEN\n    '🟥 Use Case 1 – Scenario 2\n\nExternal attacker blocking using pfSense firewall.\n\nA DDoS attack originated from the external network. AWARE4BC triggered a playbook with “Block Attacker IPs via pfSense”. \nSOAR4BC extracted the attacker IPs and called the pfSense API to block them. \nThe new state is visible in NEO4J and the result is published on the UC1.SOAR4BC.result topic.'\n\n  WHEN resp.response CONTAINS 'Redirect' OR resp.response CONTAINS 'Honeypot' THEN\n    '🟥 Use Case 1 – Scenario 3\n\nRedirecting malicious traffic to honeypot.\n\nMalicious traffic is detected. \nAWARE4BC issues a playbook instructing SOAR4BC to redirect attacker traffic to a Pentbox honeypot.\nSOAR4BC applies redirection, updates the attacker status to “Redirect Traffic”, and logs the result to Kafka and NEO4J.'\n\n  WHEN resp.response CONTAINS 'Override' OR resp.response CONTAINS 'Charging Profile' THEN\n    '🟥 Use Case 1 – Scenario 1.2\n\nMiTM attacker modifies EV charging profiles by injecting high current limits.\n\nAbnormal charging profiles are detected and the CSO operator is notified. \nAWARE4BC generates a playbook that includes the attacker IP and an “Override Charging Profiles” action. \nSOAR4BC extracts the attacker IP and, if the communication channel is trusted, uses the CSMS REST API to install a predefined safe charging profile with reduced power limits. \nThis prevents grid overloading while the CSO continues the investigation. \nThe action and its outcome are stored in Neo4j and published to the UC1.SOAR4BC.result topic.'\n  ELSE\n    'No matching scenario description available yet.'\nEND AS ScenarioText\n\nRETURN ScenarioText\n\n\n\n",
+          "width": 7,
+          "height": 2,
+          "x": 5,
+          "y": 5,
+          "type": "value",
+          "selection": {},
+          "settings": {
+            "fontSize": 16,
+            "refreshButtonEnabled": true,
+            "refreshRate": 5
+          }
+        },
+        {
+          "title": "Dynabic",
+          "query": "[![DYNABIC-logo-transparent.png](https://i.postimg.cc/Y21Lrv6y/DYNABIC-logo-transparent.png)](https://postimg.cc/Th33QYHr)\n\n\n",
+          "width": 3,
+          "height": 2,
+          "x": 0,
+          "y": 0,
+          "type": "text",
+          "selection": {},
+          "settings": {
+            "downloadImageEnabled": true,
+            "replaceGlobalParameters": false
+          }
+        },
+        {
+          "title": "SINTEF",
+          "query": "[![1530102051-xsintef-logo-bilde-png-pagespeed-ic-9n1d77vepe.jpg](https://i.postimg.cc/Hnwr6k4w/1530102051-xsintef-logo-bilde-png-pagespeed-ic-9n1d77vepe.jpg)](https://postimg.cc/64Q63wPq)\n\n\n",
+          "width": 5,
+          "height": 2,
+          "x": 3,
+          "y": 0,
+          "type": "text",
+          "selection": {},
+          "settings": {
+            "downloadImageEnabled": true,
+            "fullscreenEnabled": true
+          }
+        },
+        {
+          "title": "Human-in-the-Loop",
+          "query": "MATCH (s:SOAR)-[r:RESPONSE]->(resp:RESPONSE)\nWHERE resp.human_in_the_loop = 'yes'\nRETURN count(*) AS humanRequired\n\n\n\n",
+          "width": 3,
+          "height": 1,
+          "x": 5,
+          "y": 7,
+          "type": "value",
+          "selection": {},
+          "settings": {}
+        },
+        {
+          "title": "European Commission",
+          "query": "[![horizon-europe.jpg](https://i.postimg.cc/c43Z3z1m/horizon-europe.jpg)](https://postimg.cc/hfKHWpdz)\n\n\n",
+          "width": 6,
+          "height": 2,
+          "x": 4,
+          "y": 8,
+          "type": "text",
+          "selection": {},
+          "settings": {}
+        }
+      ]
+    },
+    {
+      "title": "DYNABIC EV Use Case Scenarios",
+      "reports": [
+        {
+          "title": "🌐 Use Case 1 – Sub-Scenario 1",
+          "query": "## 🛡️ Blocking Local Network Attackers Using SDN Controller\n\n**When a DDoS attack is detected inside the EVCS local network, AWARE4BC triggers a playbook containing the action “Block Attacker IPs via Ryu SDN Controller.”**\n\n**SOAR4BC receives this playbook, extracts the attacker source IPs and relevant action. SOAR4BC then applies immediate blocking rules using the Ryu SDN Firewall API.**\n\nAll actions are logged and visualized in the NEO4J dashboard, and the final SOAR4BC outcome is published to the UC1.SOAR4BC.result Kafka channel.\n\n🔥 **Key Steps**\n- Extract attacker IPs and relevant action from the incoming playbook\n- Apply blocking using the Ryu SDN FirewallBlockExecutor\n- Update attacker status to Blocked in the NEO4J dashboard\n- Publish final SOAR4BC action result to the Kafka channel",
+          "width": 7,
+          "height": 3,
+          "x": 0,
+          "y": 0,
+          "type": "text",
+          "selection": {},
+          "settings": {}
+        },
+        {
+          "title": "🌐 Use Case 1 - Sub-Scenario 2",
+          "query": "## 🧱 Blocking External Network Attackers Using pfSense\n\n**When a DDoS attack originates from outside the EVCS network, AWARE4BC issues a playbook with the action “Block Attacker IPs via pfSense.”**\n\n**SOAR4BC extracts the attacker source IPs and relevant action. SOAR4BC then enforces blocking rules through the pfSense Firewall API.**\n\nEvery execution is logged and displayed inside NEO4J, with the corresponding SOAR action result published to UC1.SOAR4BC.result.\n\n🔥 **Key Steps**\n- Extract attacker IPs and relevant action from the received playbook\n- Apply pfSense firewall blocking rules using the pfSense FirewallBlockExecutor\n- Update attacker node status to Blocked in NEO4J\n- Publish SOAR4BC result to Kafka channel\n\n\n",
+          "width": 7,
+          "height": 3,
+          "x": 0,
+          "y": 3,
+          "type": "text",
+          "selection": {},
+          "settings": {}
+        },
+        {
+          "title": "🌐 Use Case 1 - Sub-Scenario 3",
+          "query": "## 🎯 Redirecting Malicious Traffic to a Honeypot Server\n\n**When malicious activity is detected, AWARE4BC sends a playbook with the action “Redirect Traffic to a Honeypot Server.”**\n\n**SOAR4BC extracts the attacker IPs and relevant action. SOAR4BC then redirects their traffic to a Pentbox Honeypot, enabling analysis while protecting the EVCS network.**\n\nAll actions are logged and represented in NEO4J, and the final action result is forwarded to UC1.SOAR4BC.result Kafka channel.\n\n🔥 **Key Steps**\n- Extract attacker IPs and relevant action from the playbook\n- Activate traffic redirection using the TrafficRedirectionBlockExecutor\n- Update attacker status to Redirect Traffic in NEO4J\n- Publish final SOAR4BC action result to Kafka channel\n\n\n",
+          "width": 7,
+          "height": 3,
+          "x": 0,
+          "y": 6,
+          "type": "text",
+          "selection": {},
+          "settings": {}
+        },
+        {
+          "title": "Use Case 1.2 ",
+          "query": "## ⚠️ MiTM Attack: Manipulation of EV Charging Profiles\n\nA Man-in-the-Middle attacker modifies legitimate EV charging profiles by injecting abnormally high current limits. This scenario requires human-in-the-loop approval before SOAR4BC executes power-limiting actions, since changes affect charging operations and EV drivers.\n\nWhen the abnormal charging profiles are detected, the CSO operator is immediately notified. AWARE4BC generates a playbook that contains the attacker’s IP address and the “Override Charging Profiles” action.\nSOAR4BC parses these elements and evaluates whether the communication channels are secure. If communication is trusted, SOAR4BC proceeds with the corrective action.\n\n\n🔧 **Incident Response Flow**\n\n- Abnormal charging profiles are detected\n- CSO operator receives notification about the anomaly\n- AWARE4BC issues a playbook with attacker IP and override-charging-profile action\n- SOAR4BC validates the communication security\n- SOAR4BC parse the MiTM attacker IP and corresponding action from the playbook  \n- SOAR4BC prepares a corrective charging profile\n- A new safe, predefined charging profile is installed via the CSMS REST API\n- Power limit is immediately reduced to protect the EVCS and the grid\n- CSO operator continues the investigation\n\n\n⚡ **Action Executed by SOAR4BC**\n\nSOAR4BC uses the CSMS REST API to deploy a predefined charging profile that applies globally to the charging station.\nThis override forces safe limits, prevents possible grid overloading, and ensures the EV charging infrastructure remains stable during the attack.\n\n🧠 **Human-in-the-Loop Component**\n\nThis scenario requires CSO operator awareness. Even though the SOAR4BC applies the override automatically after validation, the operator is still informed, can inspect the installed profile, and can decide if further actions are needed.\n\n\n",
+          "width": 7,
+          "height": 3,
+          "x": 0,
+          "y": 9,
+          "type": "text",
+          "selection": {},
+          "settings": {}
+        },
+        {
+          "title": "Sub-Scenario 1",
+          "query": "🟥 **DDoS Attack Detected from Local EVCS Network** \n\n             ⬇  \n   \n🟦 **AWARE4BC Detects and Sends Relevant Playbook**  \n\n             ⬇  \n   \n🟧 **SOAR4BC Orchestrator - Parse Attacker IP and Relevant Action** \n\n             ⬇  \n   \n🟥 **Action: Block Attacker IP via Ryu SDN**  \n\n             ⬇  \n   \n🟩 **Result Published to Kafka**  \n\n             ⬇  \n   \n🟦 **NEO4J Dashboard Updated**  \n\n\n\n\n",
+          "width": 5,
+          "height": 3,
+          "x": 7,
+          "y": 0,
+          "type": "text",
+          "selection": {},
+          "settings": {}
+        },
+        {
+          "title": "Sub-Scenario 2",
+          "query": "🟥 **DDoS Attack Detected from External EVCS Network** \n\n             ⬇  \n   \n🟦 **AWARE4BC Detects and Sends Relevant Playbook**  \n\n             ⬇  \n   \n🟧 **SOAR4BC Orchestrator - Parse Attacker IP and Relevant Action** \n\n             ⬇  \n   \n🟥 **Action: Block Attacker IP via pfSense Firewall API**  \n\n             ⬇  \n   \n🟩 **Result Published to Kafka**  \n\n             ⬇  \n   \n🟦 **NEO4J Dashboard Updated**  \n\n\n\n\n\n\n\n",
+          "width": 4,
+          "height": 3,
+          "x": 7,
+          "y": 3,
+          "type": "text",
+          "selection": {},
+          "settings": {}
+        },
+        {
+          "title": "Sub-Scenario 3",
+          "query": "🟥 **Malicious Traffic Detected in EVCS Network** \n\n             ⬇  \n   \n🟦 **AWARE4BC Detects and Sends Relevant Playbook**  \n\n             ⬇  \n   \n🟧 **SOAR4BC Orchestrator - Parse Attacker IP and Relevant Action** \n\n             ⬇  \n   \n🟥 **Action: Redirects Malicious Traffic to Pentbox Honeypot**  \n\n             ⬇  \n   \n🟩 **Result Published to Kafka**  \n\n             ⬇  \n   \n🟦 **NEO4J Dashboard Updated**  \n\n\n\n\n\n\n\n",
+          "width": 4,
+          "height": 3,
+          "x": 7,
+          "y": 6,
+          "type": "text",
+          "selection": {},
+          "settings": {}
+        },
+        {
+          "title": "Scenario UC1.2",
+          "query": "🟥 **MiTM Attacker Modifies EV Charging Profiles (High Ampere Injection)**\n\n      ⬇\n\n🟦 **AWARE4BC Detects Abnormal Charging Profiles and Issues Playbook**\n\n      ⬇\n\n🟧 **SOAR4BC Orchestrator Parses Attacker IP and “Override Charging Profiles” Action**\n\n      ⬇\n\n🟨 **Human-in-the-Loop: CSO Operator Notified and Aware of the Override Action**\n\n      ⬇\n\n🟥 **SOAR4BC Installs Safe, Predefined Charging Profile via CSMS REST API\n(Immediate reduction of Ampere limit to protect EVCS and grid)**\n\n      ⬇\n\n🟩 **Result Published to Kafka UC1.SOAR4BC.result**\n\n      ⬇\n\n🟦 **NEO4J Dashboard Updated with Override Action and Attacker IP**\n\n\n",
+          "width": 4,
+          "height": 3,
+          "x": 7,
+          "y": 9,
+          "type": "text",
+          "selection": {},
+          "settings": {}
+        }
+      ]
+    }
+  ],
+  "parameters": {},
+  "extensions": {}
+}
